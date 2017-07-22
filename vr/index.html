@@ -22,6 +22,9 @@
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 101, window.innerWidth/window.innerHeight, 0.001, 1000 );
 
+			//var cvs = document.getElementById('myCanvas');
+			var renderer = new THREE.WebGLRenderer(/*{canvas: cvs}*/);
+			//renderer.domElement.id = 'myCanvas';
 			var renderer = new THREE.WebGLRenderer();
 			renderer.setSize( window.innerWidth, window.innerHeight );
 			renderer.setClearColor(0xaaccff);
@@ -83,11 +86,11 @@
 				}
 				var drawBottom = function(){
 					var sqPts = [];
-					sqPts.push(new THREE.Vector2(-50,-50));
-					sqPts.push(new THREE.Vector2(-50, 50));
-					sqPts.push(new THREE.Vector2(50, 50));
-					sqPts.push(new THREE.Vector2(50, -50));
-					sqPts.push(new THREE.Vector2(-50, -50));
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
 					var square = new THREE.Shape(sqPts);
 					Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
 					Bottom.position.set(0, 0, 0);
@@ -97,31 +100,63 @@
 					var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
 					var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
 					Sphere = new THREE.Mesh( geometry, material );
-					scene.add( Sphere );
+					//scene.add( Sphere );
 				}
 				drawBottom();
 				frame_size = record.length;
 				animate();
 			}
 			var animate = function () {
-				requestAnimationFrame( animate );
+				var width = window.innerWidth; var height = window.innerHeight;
 				if(frame >= frame_size) frame = frame_size-1;
+				var xdeg = Math.atan2(record[frame].cx - record[frame].x, record[frame].cz - record[frame].z);
+				requestAnimationFrame( animate );
 				for(var i=0;i<row;i++){
 					for(var j=0;j<col;j++){
 						if(map[i][j] == 1){
-							wall[i][j].position.set(j * 5 - record[frame].x, 4 - record[frame].y, i * 5 - record[frame].z); 
+							var xx = -(j * 5 - record[frame].x);
+							var zz = -(i * 5 - record[frame].z);
+							wall[i][j].position.set(xx * Math.cos(xdeg) - zz * Math.sin(xdeg), 4 - record[frame].y, xx * Math.sin(xdeg) + zz * Math.cos(xdeg)); 
+							wall[i][j].rotation.y = -xdeg;
 						}
 					}
 				}
-				Bottom.position.set(-record[frame].x, -1-record[frame].y, -record[frame].z);
+				var bxx = record[frame].x;
+				var bzz = record[frame].z;
+				Bottom.position.set(bxx * Math.cos(xdeg) - bzz * Math.sin(xdeg), -1-record[frame].y, bxx * Math.sin(xdeg) + bzz * Math.cos(xdeg));
+				Bottom.rotation.z = -xdeg;
+				Sphere.position.set(0, (record[frame].cy - record[frame].y - 1) / 100.0, -1);
 				//console.log(record[frame].cx, record[frame].cy, record[frame].cz);
-				camera.lookAt(new THREE.Vector3(record[frame].cx - record[frame].x,record[frame].cy - record[frame].y - 1,record[frame].cz - record[frame].z));
+				camera.lookAt(new THREE.Vector3(0,record[frame].cy - record[frame].y - 1, -100));
 				//camera.position.x = record[frame].x;
 				//camera.position.y = record[frame].y;
 				//camera.position.z = record[frame].z;
 				frame++;
 				//console.log(frame);
 				renderer.render(scene, camera);
+				/*
+				var aimCanvas = document.getElementById('aim');
+				ctx = aimCanvas.getContext('2d');
+				aimCanvas.width = width;
+				aimCanvas.height = height;
+				ctx.strokeStyle="#FFFFFF";
+				ctx.beginPath();
+				ctx.moveTo(width/2 - 10, height/2);
+				ctx.lineTo(width/2 - 2, height/2);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(width/2 + 10, height/2);
+				ctx.lineTo(width/2 + 2, height/2);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(width/2, height/2 - 10);
+				ctx.lineTo(width/2, height/2 - 2);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(width/2, height/2 + 10);
+				ctx.lineTo(width/2, height/2 + 2);
+				ctx.stroke();
+				*/
 			};
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
