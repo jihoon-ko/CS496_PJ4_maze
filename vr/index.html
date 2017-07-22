@@ -8,11 +8,11 @@
 		</style>
 	</head>
 	<body>
-		<script src="js/three.js"></script>
-		<script src="js/webvr.js"></script>
+		<script src="../js/three.js"></script>
+		<script src="../js/webvr.js"></script>
 		<script>
 			var loader = new THREE.TextureLoader();
-			var texture = loader.load( "assets/UV_Grid_Sm.jpg" );
+			var texture = loader.load( "../assets/UV_Grid_Sm.jpg" );
 			texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 			texture.repeat.set( 0.008, 0.008 );
 			

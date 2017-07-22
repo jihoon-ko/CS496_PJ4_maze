@@ -20,7 +20,7 @@
 				document.body.appendChild( WEBVR.getMessageContainer( message ) );
 			} );
 			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 1000 );
+			var camera = new THREE.PerspectiveCamera( 101, window.innerWidth/window.innerHeight, 0.001, 1000 );
 
 			var renderer = new THREE.WebGLRenderer();
 			renderer.setSize( window.innerWidth, window.innerHeight );
@@ -43,6 +43,7 @@
 			var frame = 0;
 			var frame_size = 0;
 			var row; var col;
+			var Bottom;
 			function initState(){
 				if(downloaded < 3 && httpRequest.status == 200){
 					//downloaded = true;
@@ -88,7 +89,7 @@
 					sqPts.push(new THREE.Vector2(50, -50));
 					sqPts.push(new THREE.Vector2(-50, -50));
 					var square = new THREE.Shape(sqPts);
-					var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
+					Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
 					Bottom.position.set(0, 0, 0);
 					Bottom.rotation.x = -Math.PI/2;
 					scene.add(Bottom);
@@ -103,13 +104,25 @@
 				animate();
 			}
 			var animate = function () {
-				requestAnimationFrame( animate );
 				if(frame >= frame_size) frame = frame_size-1;
-				camera.position.x = record[frame].x;
-				camera.position.y = record[frame].y;
-				camera.position.z = record[frame].z;
+				var xdeg = Math.atan2(record[frame].cx - record[frame].x, record[frame].cz - record[frame].z);
+				requestAnimationFrame( animate );
+				for(var i=0;i<row;i++){
+					for(var j=0;j<col;j++){
+						if(map[i][j] == 1){
+							var xx = -(j * 5 - record[frame].x);
+							var zz = -(i * 5 - record[frame].z);
+							wall[i][j].position.set(xx * Math.cos(xdeg) - zz * Math.sin(xdeg), 4 - record[frame].y, xx * Math.sin(xdeg) + zz * Math.cos(xdeg)); 
+							wall[i][j].rotation.y = -xdeg;
+						}
+					}
+				}
+				var bxx = record[frame].x;
+				var bzz = record[frame].z;
+				Bottom.position.set(bxx * Math.cos(xdeg) - bzz * Math.sin(xdeg), -1-record[frame].y, bxx * Math.sin(xdeg) + bzz * Math.cos(xdeg));
+				Bottom.rotation.z = -xdeg;
 				//console.log(record[frame].cx, record[frame].cy, record[frame].cz);
-				camera.lookAt(new THREE.Vector3(record[frame].cx,record[frame].cy,record[frame].cz));
+				camera.lookAt(new THREE.Vector3(0,record[frame].cy - record[frame].y - 1, -100));
 				//camera.position.x = record[frame].x;
 				//camera.position.y = record[frame].y;
 				//camera.position.z = record[frame].z;

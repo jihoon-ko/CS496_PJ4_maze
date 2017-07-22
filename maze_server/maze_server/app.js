@@ -14,7 +14,7 @@ var app = express();
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-
+/*
 var allowCORS = function(req, res, next) {
   res.header('Acess-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
@@ -23,10 +23,11 @@ var allowCORS = function(req, res, next) {
     res.send(200) :
     next();
 };
+*/
 app.use(CORS); 
-app.use(allowCORS);
 
 app.use(logger('dev'));
+app.use(bodyParser({limit: '50mb'}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
