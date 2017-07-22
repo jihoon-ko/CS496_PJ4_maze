@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset = utf-8>
+		<title>My first three.js app</title>
+		<link rel = "stylesheet" type = "text/css" href = "tutorial.css">
+	</head>
+
+	<body>
+
+		<div id="info">
+		<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> by <a href="http://www.naver.com" target="_blank" rel="noopener">KimYoonseo</a> 
+		<br/>CS 496 week 4
+		</div>
+
+		<script src="js/three.js"></script>
+		<script src="js/controls/OrbitControls.js"></script>
+		<script src="js/Detector.js"></script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			
+			(function() {
+				var scene, camera, renderer, controls;
+				var cube;
+
+				// maze
+				function makeMaze(x,y) {
+					var n=x*y-1;
+					if (n<0) {alert("illegal maze dimensions");return;}
+					var horiz =[]; for (var j= 0; j<x+1; j++) horiz[j]= [],
+					    verti =[]; for (var j= 0; j<x+1; j++) verti[j]= [],
+					    here = [Math.floor(Math.random()*x), Math.floor(Math.random()*y)],
+					    path = [here],
+					    unvisited = [];
+					for (var j = 0; j<x+2; j++) {
+						unvisited[j] = [];
+						for (var k= 0; k<y+1; k++)
+							unvisited[j].push(j>0 && j<x+1 && k>0 && (j != here[0]+1 || k != here[1]+1));
+					}
+					while (0<n) {
+						var potential = [[here[0]+1, here[1]], [here[0],here[1]+1],
+						    [here[0]-1, here[1]], [here[0],here[1]-1]];
+						var neighbors = [];
+						for (var j = 0; j < 4; j++)
+							if (unvisited[potential[j][0]+1][potential[j][1]+1])
+								neighbors.push(potential[j]);
+						if (neighbors.length) {
+							n = n-1;
+							next= neighbors[Math.floor(Math.random()*neighbors.length)];
+							unvisited[next[0]+1][next[1]+1]= false;
+							if (next[0] == here[0])
+								horiz[next[0]][(next[1]+here[1]-1)/2]= true;
+							else 
+								verti[(next[0]+here[0]-1)/2][next[1]]= true;
+							path.push(here = next);
+						} else 
+							here = path.pop();
+					}
+					return {x: x, y: y, horiz: horiz, verti: verti};
+				}
+				var twoByThree = makeMaze(2,3);
+
+				function generateMaze(maze) {
+					row = maze.x*2+2;
+					col = maze.y*2+1;
+					var res = new Array(row);
+					for(var i = 0; i < row; i++){
+						res[i] = new Array(col);
+					}
+					// initialize with 1
+					for(var r = 0; r < row; r++){
+						for(var c = 0; c < col; c++){
+							res[r][c] = 1;
+						}
+					}
+					res[1][1] = 2;
+					res[row-2][col-1] = 3;
+					for(var r = 2; r < row; r++){
+						for(var c = 0; c < col; c++){
+							if(r%2 == 0){
+								if(c%2 == 1){
+									res[r][c] = 0;
+								}
+							}
+						}
+					}
+					for(var r = 0; r < maze.x + 1; r++){
+						for(var c = 0; c < maze.y; c++){
+							if(maze.horiz[r][c]){
+								res[r*2+2][c*2+2] = 0;
+							}
+							if(maze.verti[r][c]){
+								res[r*2+3][c*2+1] = 0;
+							}
+						}
+					}
+					return res;
+				}
+
+				function init() {
+
+					scene = new THREE.Scene();
+					camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 1, 10000 );
+
+					renderer = new THREE.WebGLRenderer();
+					renderer.setSize(window.innerWidth, window.innerHeight);
+					renderer.setClearColor( 0xffffff, 1 )
+					document.body.appendChild(renderer.domElement);
+
+					controls = new THREE.OrbitControls( camera, renderer.domElement);
+					controls.addEventListener( 'change', render );// remove when using animation loop
+					// enable animation loop when using damping or autorotation
+					//controls.enableDamping = true;
+					//controls.dampingFactor = 0.25;
+					controls.enableZoom = false;
+		
+
+					var geometry = new THREE.PlaneGeometry( 110, 110, 5 );
+					var material = new THREE.MeshBasicMaterial( {color: 0x000000, side: THREE.DoubleSide} );
+					var plane = new THREE.Mesh( geometry, material );
+					//scene.add(plane);
+					plane.position.set( 0, 0, 0 );
+					
+					var geometry = new THREE.BoxGeometry( 10, 10, 10 );
+					var material = new THREE.MeshBasicMaterial({color: 0xfffff});
+
+					/*cube = new THREE.Mesh(geometry, material);
+					
+					scene.add(cube);
+					cube.position.set( 0, 5, 0);
+					*/
+					var maze = generateMaze(makeMaze(12,12));
+					/*
+					var maze = [ [ 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1 ], 
+								 [ 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1 ], 
+								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+								 [ 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0 ],
+								 [ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+								 [ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0 ],
+								 [ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
+								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
+								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
+								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]];
+					*/
+					// Generate maze
+					for (var row in maze) {
+						for (var col in maze[row]) {
+							console.log("row: " + row + " col: " + col + " = " + maze[row][col]);
+							if ( maze[row][col] == 1 ) {
+								cube = new THREE.Mesh(geometry, material);
+								scene.add(cube);
+								cube.position.set( col * 10 - 50 , row * 10 - 50 , 5 );
+							}
+						}
+					}
+
+					camera.position.z = 300;
+
+				}
+
+				function render() {
+					requestAnimationFrame(render);
+					//cube.rotation.x += 0.01;
+					//cube.rotation.y += 0.01;
+					renderer.render(scene, camera);
+				};
+
+					
+
+				init();
+				render();
+
+			}())
+
+		</script>
+
+	</body>
+
+</html>
