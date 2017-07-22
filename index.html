@@ -4,10 +4,29 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
 			body { margin: 0; }
-			canvas { width: 100%; height: 100% }
+			canvas{
+				width: 100%;
+				height: 100%;
+				position: absolute;
+			}
+			canvas#myCanvas {
+				z-index: -1;
+				left: 0; top: 0;
+			}
+			canvas#aim {
+				z-index: 10;
+				left: 0; top: 0;
+			}
+			canvas#minimap{
+				z-index: 20;
+				left: 0; top: 0;
+			}
 		</style>
 	</head>
 	<body>
+		<canvas id="myCanvas"></canvas>
+		<canvas id="aim"></canvas>
+		<canvas id="minimap"></canvas>
 		<script src="js/three.js"></script>
 		<script src="js/webvr.js"></script>
 		<script>
@@ -19,14 +38,15 @@
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 1000 );
 
-			
-			var renderer = new THREE.WebGLRenderer();
+			var cvs = document.getElementById('myCanvas');
+			var renderer = new THREE.WebGLRenderer({canvas: cvs});
+			renderer.domElement.id = 'myCanvas';
 			renderer.setSize( window.innerWidth, window.innerHeight );
 			renderer.setClearColor(0xaaccff);
 			var y_val = 1;
 			var gravity = 9.8;
 			var Bottom, Sphere;
-			var coor = {x: 5, y: y_val, z: 30, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
+			var coor = {x: 0, y: y_val, z: 0, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
 			var moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
 			var press = {left: false, right: false, up: false, down: false};
 			var moveScale = {move: 6, deg: 2};
@@ -34,20 +54,31 @@
 			var jump = {jumping: false, time: 0};
 			var prev_time = 0;
 			var save_view = [];
-			var row = 8, col = 7;
+			var row, col;
 			var max_frame = 3000;
 			var finished = false;
-			var maze = [[1, 1, 1, 1, 1, 1, 1],
+			/*var maze = [[1, 1, 1, 1, 1, 1, 1],
 						[1, 0, 0, 0, 1, 0, 0],
 						[1, 0, 1, 0, 1, 0, 1], 
 						[1, 0, 1, 0, 1, 0, 1], 
 						[1, 0, 1, 0, 0, 0, 1], 
 						[1, 0, 1, 0, 1, 0, 1], 
-						[1, 0, 1, 0, 0, 0, 1], 
-						[1, 1, 1, 1, 1, 1, 1]];
+						[1, 2, 1, 0, 0, 0, 1], 
+						[1, 1, 1, 1, 1, 1, 1]];*/
+			var maze = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+						[1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+						[1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+						[1, 0, 1, 0, 1, 0, 0, 0, 1, 1],
+						[1, 2, 0, 0, 1, 0, 1, 0, 1, 1],
+						[1, 0, 1, 1, 1, 1, 1, 0, 0, 1],
+						[1, 0, 1, 0, 0, 1, 0, 0, 1, 1],
+						[1, 0, 0, 0, 1, 1, 0, 1, 1, 1],
+						[1, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+						[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]];
+			var show_minimap = false;
 
-			var wall = new Array(row);
-			for(var i=0;i<row;i++) wall[i] = new Array(col);
+			var ctx, ctxmap;
+			window.onload = init;
 			
 			function init(){
 				/*
@@ -71,11 +102,13 @@
 				
 				var drawBottom = function(){
 					var sqPts = [];
-					sqPts.push(new THREE.Vector2(-50,-50));
-					sqPts.push(new THREE.Vector2(-50, 50));
-					sqPts.push(new THREE.Vector2(50, 50));
-					sqPts.push(new THREE.Vector2(50, -50));
-					sqPts.push(new THREE.Vector2(-50, -50));
+					row = maze.length;
+					col = maze[0].length;
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
 					var square = new THREE.Shape(sqPts);
 					var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
 					Bottom.position.set(0, 0, 0);
@@ -85,10 +118,20 @@
 					var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
 					var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
 					Sphere = new THREE.Mesh( geometry, material );
-					scene.add( Sphere );
+					//scene.add( Sphere );
+					var material = new THREE.SpriteMaterial( { color: 0x000000 } );
+					/*
+					sprite1 = new THREE.Sprite(material);
+					sprite1.scale.set(0.05,0.0028,1);
+					sprite2 = new THREE.Sprite(material);
+					sprite2.scale.set(0.006,0.05,1);
+					scene.add(sprite1); scene.add(sprite2);
+					*/
 				}
 				var makemaze = function(){
+					wall = new Array(row);
 					for(var i=0;i<row;i++){
+						wall[i] = new Array(col);
 						for(var j=0;j<col;j++){
 							if(maze[i][j] == 1){
 								var wall_geometry = new THREE.BoxGeometry( 5, 10, 5 );
@@ -96,17 +139,23 @@
 								wall[i][j] = new THREE.Mesh(wall_geometry, material);
 								wall[i][j].position.set(j * 5, 5, i * 5);
 								scene.add(wall[i][j]); 
+							}else if(maze[i][j] == 2){
+								coor.x = j * 5;
+								coor.z = i * 5;
+								maze[i][j] = 0;
 							}
 						}
 					}
 				}
 				drawBottom();
 				makemaze();
+				animate();
 			}
 			function alertContents(){
 				console.log(httpRequest.status);
 			}
 			function animate(){
+				var width = window.innerWidth; var height = window.innerHeight;
 				var movingTask = function(){
 					requestAnimationFrame( animate );
 					camera.position.x = coor.x;
@@ -177,7 +226,6 @@
 					}
 					if(moving.doing) document.body.style.cursor = "none";
 					else document.body.style.cursor = "default";
-					var width = window.innerWidth; var height = window.innerHeight;
 					if(moving.doing){
 						if(cursor_now.x <= 0.02 * width){
 							moving.ori_deg -= moveScale.deg * Math.PI / 180.0;
@@ -188,8 +236,68 @@
 						}
 					}
 				}
+				var twoTask = function(){
+					var aimCanvas = document.getElementById('aim');
+					ctx = aimCanvas.getContext('2d');
+					aimCanvas.width = width;
+					aimCanvas.height = height;
+					ctx.strokeStyle="#FFFFFF";
+					ctx.beginPath();
+					ctx.moveTo(width/2 - 10, height/2);
+					ctx.lineTo(width/2 - 2, height/2);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.moveTo(width/2 + 10, height/2);
+					ctx.lineTo(width/2 + 2, height/2);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.moveTo(width/2, height/2 - 10);
+					ctx.lineTo(width/2, height/2 - 2);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.moveTo(width/2, height/2 + 10);
+					ctx.lineTo(width/2, height/2 + 2);
+					ctx.stroke();
+					var mapCanvas = document.getElementById('minimap');
+					ctxmap = mapCanvas.getContext('2d');
+					mapCanvas.width = width;
+					mapCanvas.height = height;
+					ctxmap.globalAlpha = 0.5;
+					if(finished){
+						ctxmap.fillStyle = '#777777';
+						ctxmap.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
+						ctx.font="30px Arial"
+						ctx.textAlign = "center"
+						ctx.fillText("Congraturations!", width/2, height/2 + 10);
+					}else{
+						if(!moving.doing || show_minimap){
+							ctxmap.fillStyle = '#777777';
+							ctxmap.fillRect(width / 2 - 20 * col - 20, height / 2 - 20 * row - 20, 40 * col + 40, 40 * row + 40);
+							for(var i=0;i<row;i++){
+								for(var j=0;j<col;j++){
+									if(maze[i][j] == 1){
+										ctxmap.fillStyle = '#000000';
+									}else if(maze[i][j] == 0){
+										var rr = Math.floor((coor.z / 5) + 0.5);
+										var cc = Math.floor((coor.x / 5) + 0.5);
+										if(i == rr && j == cc){
+											ctxmap.fillStyle = '#FFFF00';
+										}else{
+											ctxmap.fillStyle = '#FFFFFF';
+										}
+									}else{
+										ctxmap.fillStyle = '#FF0000';
+									}
+									ctxmap.fillRect(width / 2 - 20 * col + 40 * j + 2, height / 2 - 20 * row + 40 * i + 2, 36, 36);
+								}
+							}
+						}
+					}
+				}
 				movingTask();
+				twoTask();
 				renderer.render(scene, camera);
+
 			}
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -260,6 +368,9 @@
 						coor.deg += Math.PI;
 					}
 				}
+				if(e.keyCode == 81){
+					show_minimap = true;
+				}
 			}
 			function onKeyUp(e){
 				//console.log("keyup", e.keyCode);
@@ -290,9 +401,10 @@
 						}
 					}
 				}
+				if(e.keyCode == 81){
+					show_minimap = false;
+				}
 			}
-			init();
-			animate();
 		</script>
 	</body>
 </html>
