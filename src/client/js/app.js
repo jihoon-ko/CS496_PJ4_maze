@@ -1,21 +1,21 @@
+var Canvas = require('./canvas');
+var global = require('./global');
+
 var playerName;
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
 
 // var screenWidth = window.innerWidth;
 // var screenHeight = window.innerHeight;
+window.canvas = new Canvas();
+var c = window.canvas.cv;
 
-var c = document.getElementById('cvs');
 var canvas = c.getContext('2d');
 c.width = screenWidth; c.height = screenHeight;
-
-var KEY_ENTER = 13;
 
 var game = new Game();
 
 window.onload = function() {
-  'use strict';
-
   var btnStart = document.getElementById('startButton');
   var btnSpectate = document.getElementById('spectateButton');
   var btnVR = document.getElementById('vrButton');
@@ -40,7 +40,7 @@ window.onload = function() {
 
   playerNameInput.addEventListener('keypress', function (e) {
     var key = e.which || e.keyCode;
-    if (key === KEY_ENTER) {
+    if (key === 13) { //KEY_ENTER
       if (validNick()) {
         startGame('player');
       } else {
