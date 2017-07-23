@@ -9,9 +9,30 @@
 	<body>
 
 		<div id="info">
-		<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> by <a href="http://www.naver.com" target="_blank" rel="noopener">KimYoonseo</a> 
-		<br/>CS 496 week 4
+		<p><a href="http://threejs.org" target="_blank" rel="noopener">three.js</a></p>
+		<p>CS 496 week 4 </p>
+		<p>input row and col and click "Show Maze" button,</p>
+		<p>and then click "Save Maze" button if you want to save it </p>
+
+		<button onclick="sendMaze()"> Save Maze</button>
+
+		<form action="/action_page.php">
+		Row: <input type="number" id="Row" value=""><br>
+		Col: <input type="number" id="Col" value=""><br>
+		<input type="button" onclick="showMaze()" value="Show Maze">
+		</form>
 		</div>
+		<style>
+			body {
+				color: #fff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+		</style>
 
 		<script src="js/three.js"></script>
 		<script src="js/controls/OrbitControls.js"></script>
@@ -19,86 +40,105 @@
 
 		<script>
 
+			var scene, camera, renderer, controls;
+			var cube;
+
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var maze; 
+
+			// maze
+			function makeMaze(x,y) {
+				console.log(x);
+				console.log(y);
+				var n=x*y-1;
+				if (n<0) {alert("illegal maze dimensions");return;}
+				
+				var horiz =[]; for (var j= 0; j<x+1; j++) horiz[j]= [],
+				    verti =[]; for (var j= 0; j<x+1; j++) verti[j]= [],
+				    here = [Math.floor(Math.random()*x), Math.floor(Math.random()*y)],
+				    path = [here],
+				    unvisited = [];
+				for (var j = 0; j<x+2; j++) {
+					unvisited[j] = [];
+					for (var k= 0; k<y+1; k++)
+						unvisited[j].push(j>0 && j<x+1 && k>0 && (j != here[0]+1 || k != here[1]+1));
+				}
+				while (0<n) {
+					var potential = [[here[0]+1, here[1]], [here[0],here[1]+1],
+					    [here[0]-1, here[1]], [here[0],here[1]-1]];
+					var neighbors = [];
+					for (var j = 0; j < 4; j++)
+						if (unvisited[potential[j][0]+1][potential[j][1]+1])
+							neighbors.push(potential[j]);
+					if (neighbors.length) {
+						n = n-1;
+						next= neighbors[Math.floor(Math.random()*neighbors.length)];
+						unvisited[next[0]+1][next[1]+1]= false;
+						if (next[0] == here[0])
+							horiz[next[0]][(next[1]+here[1]-1)/2]= true;
+						else 
+							verti[(next[0]+here[0]-1)/2][next[1]]= true;
+						path.push(here = next);
+					} else 
+						here = path.pop();
+				}
+				return {x: x, y: y, horiz: horiz, verti: verti};
+			}
+
+			function generateMaze(maze) {
+				row = maze.x*2+2;
+				col = maze.y*2+1;
+				var res = new Array(row);
+				for(var i = 0; i < row; i++){
+					res[i] = new Array(col);
+				}
+				// initialize with 1
+				for(var r = 0; r < row; r++){
+					for(var c = 0; c < col; c++){
+						res[r][c] = 1;
+					}
+				}
+				//start point
+				res[1][1] = 2;
+				res[row-2][col-1] = 0;
+				for(var r = 2; r < row; r++){
+					for(var c = 0; c < col; c++){
+						if(r%2 == 0){
+							if(c%2 == 1){
+								res[r][c] = 0;
+							}
+						}
+					}
+				}
+				for(var r = 0; r < maze.x + 1; r++){
+					for(var c = 0; c < maze.y; c++){
+						if(maze.horiz[r][c]){
+							res[r*2+2][c*2+2] = 0;
+						}
+						if(maze.verti[r][c]){
+							res[r*2+3][c*2+1] = 0;
+						}
+					}
+				}
+				return res;
+			}
+
+
+			function sendMaze() {
+				// POST 12 by 12 maze on server
+				httpRequest = new XMLHttpRequest();
+				//httpRequest.onreadystatechange = none;
+				httpRequest.open('POST', 'http://52.78.113.241:3000/mapupload');
+				httpRequest.setRequestHeader("Content-type", "application/json");
+				httpRequest.send(JSON.stringify({map: maze}));
+				
+			}
 			
-			(function() {
-				var scene, camera, renderer, controls;
-				var cube;
-
-				// maze
-				function makeMaze(x,y) {
-					var n=x*y-1;
-					if (n<0) {alert("illegal maze dimensions");return;}
-					var horiz =[]; for (var j= 0; j<x+1; j++) horiz[j]= [],
-					    verti =[]; for (var j= 0; j<x+1; j++) verti[j]= [],
-					    here = [Math.floor(Math.random()*x), Math.floor(Math.random()*y)],
-					    path = [here],
-					    unvisited = [];
-					for (var j = 0; j<x+2; j++) {
-						unvisited[j] = [];
-						for (var k= 0; k<y+1; k++)
-							unvisited[j].push(j>0 && j<x+1 && k>0 && (j != here[0]+1 || k != here[1]+1));
-					}
-					while (0<n) {
-						var potential = [[here[0]+1, here[1]], [here[0],here[1]+1],
-						    [here[0]-1, here[1]], [here[0],here[1]-1]];
-						var neighbors = [];
-						for (var j = 0; j < 4; j++)
-							if (unvisited[potential[j][0]+1][potential[j][1]+1])
-								neighbors.push(potential[j]);
-						if (neighbors.length) {
-							n = n-1;
-							next= neighbors[Math.floor(Math.random()*neighbors.length)];
-							unvisited[next[0]+1][next[1]+1]= false;
-							if (next[0] == here[0])
-								horiz[next[0]][(next[1]+here[1]-1)/2]= true;
-							else 
-								verti[(next[0]+here[0]-1)/2][next[1]]= true;
-							path.push(here = next);
-						} else 
-							here = path.pop();
-					}
-					return {x: x, y: y, horiz: horiz, verti: verti};
-				}
-				var twoByThree = makeMaze(2,3);
-
-				function generateMaze(maze) {
-					row = maze.x*2+2;
-					col = maze.y*2+1;
-					var res = new Array(row);
-					for(var i = 0; i < row; i++){
-						res[i] = new Array(col);
-					}
-					// initialize with 1
-					for(var r = 0; r < row; r++){
-						for(var c = 0; c < col; c++){
-							res[r][c] = 1;
-						}
-					}
-					res[1][1] = 2;
-					res[row-2][col-1] = 0;
-					for(var r = 2; r < row; r++){
-						for(var c = 0; c < col; c++){
-							if(r%2 == 0){
-								if(c%2 == 1){
-									res[r][c] = 0;
-								}
-							}
-						}
-					}
-					for(var r = 0; r < maze.x + 1; r++){
-						for(var c = 0; c < maze.y; c++){
-							if(maze.horiz[r][c]){
-								res[r*2+2][c*2+2] = 0;
-							}
-							if(maze.verti[r][c]){
-								res[r*2+3][c*2+1] = 0;
-							}
-						}
-					}
-					return res;
-				}
-
+			function showMaze() {
+				// make maze by input row and col
+				//console.log(typeof( document.getElementById("Row").value ));
+				
 				function init() {
 
 					scene = new THREE.Scene();
@@ -106,7 +146,7 @@
 
 					renderer = new THREE.WebGLRenderer();
 					renderer.setSize(window.innerWidth, window.innerHeight);
-					renderer.setClearColor( 0xffffff, 1 )
+					renderer.setClearColor( 0x000000, 1 )
 					document.body.appendChild(renderer.domElement);
 
 					controls = new THREE.OrbitControls( camera, renderer.domElement);
@@ -116,7 +156,6 @@
 					//controls.dampingFactor = 0.25;
 					controls.enableZoom = false;
 		
-
 					//var geometry = new THREE.PlaneGeometry( 110, 110, 5 );
 					//var material = new THREE.MeshBasicMaterial( {color: 0x000000, side: THREE.DoubleSide} );
 					//var plane = new THREE.Mesh( geometry, material );
@@ -126,14 +165,6 @@
 					var geometry = new THREE.BoxGeometry( 10, 10, 10 );
 					var material = new THREE.MeshBasicMaterial({color: 0xfffff});
 
-
-					var maze = generateMaze(makeMaze(12,12));
-					// POST 12 by 12 maze on server
-					httpRequest = new XMLHttpRequest();
-					//httpRequest.onreadystatechange = none;
-					httpRequest.open('POST', 'http://52.78.113.241:3000/mapupload');
-					httpRequest.setRequestHeader("Content-type", "application/json");
-					httpRequest.send(JSON.stringify({map: maze}));
 					/*
 					var maze = [ [ 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1 ], 
 								 [ 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1 ], 
@@ -147,6 +178,8 @@
 								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
 								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]];
 					*/
+					maze = generateMaze(makeMaze( document.getElementById("Row").value*1 , document.getElementById("Col").value*1 ));
+
 					// Generate maze
 					for (var row in maze) {
 						for (var col in maze[row]) {
@@ -159,7 +192,7 @@
 						}
 					}
 
-					camera.position.z = 300;
+					camera.position.z = document.getElementById("Row").value*1*25;
 
 				}
 
@@ -170,12 +203,10 @@
 					renderer.render(scene, camera);
 				};
 
-					
-
 				init();
 				render();
 
-			}())
+			}
 
 		</script>
 
