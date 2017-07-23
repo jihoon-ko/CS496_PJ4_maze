@@ -47,12 +47,17 @@
 			var frame_size = 0;
 			var row; var col;
 			var Bottom;
+			var considered = false;
+			var sq;
+			var msq;
+			var sgroup;
 			function initState(){
-				if(httpRequest.status == 200){
+				if(!considered && httpRequest.status == 200){
 					try{
 						var myJson = JSON.parse(httpRequest.responseText);
 						map = myJson.mp;
 						record = myJson.record;
+						considered = true;
 						initShape();
 					}catch(err){
 					}
@@ -101,6 +106,40 @@
 					//scene.add( Sphere );
 				}
 				drawBottom();
+				var sqPt = [];
+				sqPt.push(new THREE.Vector2(-0.44, -0.44));
+				sqPt.push(new THREE.Vector2( 0.44, -0.44));
+				sqPt.push(new THREE.Vector2( 0.44,  0.44));
+				sqPt.push(new THREE.Vector2(-0.44,  0.44));
+				sqPt.push(new THREE.Vector2(-0.44, -0.44));
+				
+				var msqPt = [];
+				msqPt.push(new THREE.Vector2(-0.033, -0.033));
+				msqPt.push(new THREE.Vector2( 0.033, -0.033));
+				msqPt.push(new THREE.Vector2( 0.033,  0.033));
+				msqPt.push(new THREE.Vector2(-0.033,  0.033));
+				msqPt.push(new THREE.Vector2(-0.033, -0.033));
+				sgroup = new THREE.Group();
+				var sqr = new THREE.Shape(sqPt);
+				sq = new THREE.Mesh(new THREE.ShapeBufferGeometry(sqr), new THREE.MeshBasicMaterial( {color: 0x777777, opacity: 0.5, transparent: true} ));
+				
+				var msqr = new THREE.Shape(msqPt);
+				
+				sq.position.set(0,0,-1);
+				sgroup.add(sq);
+				
+				msq = new Array(11);
+				for(var i=0;i<11;i++){
+					msq[i] = new Array(11);
+					for(var j=0;j<11;j++){
+						//if((i+j)%2==0) continue;
+						msq[i][j] = new THREE.Mesh(new THREE.ShapeBufferGeometry(msqr), new THREE.MeshBasicMaterial({color: 0xffffff, opacity: 0.5, transparent: true}));
+						msq[i][j].position.set((j-5) * 0.075, (i-5) * 0.075, -0.99); 
+						sgroup.add(msq[i][j]);
+					}
+				}
+				scene.add(sgroup);
+				
 				frame_size = record.length;
 				animate();
 			}
@@ -109,6 +148,8 @@
 				if(frame >= frame_size) frame = frame_size-1;
 				var xdeg = Math.atan2(record[frame].cx - record[frame].x, record[frame].cz - record[frame].z);
 				requestAnimationFrame( animate );
+				var rr = Math.floor((record[frame].z / 5) + 0.5);
+				var cc = Math.floor((record[frame].x / 5) + 0.5);			
 				for(var i=0;i<row;i++){
 					for(var j=0;j<col;j++){
 						if(map[i][j] == 1){
@@ -124,37 +165,29 @@
 				Bottom.position.set(bxx * Math.cos(xdeg) - bzz * Math.sin(xdeg), -1-record[frame].y, bxx * Math.sin(xdeg) + bzz * Math.cos(xdeg));
 				Bottom.rotation.z = -xdeg;
 				Sphere.position.set(0, (record[frame].cy - record[frame].y - 1) / 100.0, -1);
-				//console.log(record[frame].cx, record[frame].cy, record[frame].cz);
 				camera.lookAt(new THREE.Vector3(0,record[frame].cy - record[frame].y - 1, -100));
-				//camera.position.x = record[frame].x;
-				//camera.position.y = record[frame].y;
-				//camera.position.z = record[frame].z;
 				frame++;
-				//console.log(frame);
+				sgroup.traverse(function(object){object.visible = true;});
+				if(frame >= frame_size || !(record[frame].map)) sgroup.traverse(function(object){object.visible = false;});
+				else{
+					for(var i=-5;i<=5;i++){
+						for(var j=-5;j<=5;j++){
+							msq[i+5][j+5].visible = true;
+							if(i + rr < 0 || i + rr >= row || j + cc < 0 || j + cc >= col){
+								msq[i+5][j+5].material.color.setHex(0x777777);
+								msq[i+5][j+5].visible = false;
+							}else if(map[i+rr][j+cc] == 1){
+								msq[i+5][j+5].material.color.setHex(0x000000);
+							}else if(i == 0 && j == 0){
+								msq[5][5].material.color.setHex(0xffff00);
+							}else{
+								msq[i+5][j+5].material.color.setHex(0xffffff);
+							}
+						}
+					}
+					
+				}
 				renderer.render(scene, camera);
-				/*
-				var aimCanvas = document.getElementById('aim');
-				ctx = aimCanvas.getContext('2d');
-				aimCanvas.width = width;
-				aimCanvas.height = height;
-				ctx.strokeStyle="#FFFFFF";
-				ctx.beginPath();
-				ctx.moveTo(width/2 - 10, height/2);
-				ctx.lineTo(width/2 - 2, height/2);
-				ctx.stroke();
-				ctx.beginPath();
-				ctx.moveTo(width/2 + 10, height/2);
-				ctx.lineTo(width/2 + 2, height/2);
-				ctx.stroke();
-				ctx.beginPath();
-				ctx.moveTo(width/2, height/2 - 10);
-				ctx.lineTo(width/2, height/2 - 2);
-				ctx.stroke();
-				ctx.beginPath();
-				ctx.moveTo(width/2, height/2 + 10);
-				ctx.lineTo(width/2, height/2 + 2);
-				ctx.stroke();
-				*/
 			};
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;

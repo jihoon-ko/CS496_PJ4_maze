@@ -230,7 +230,7 @@
 					Sphere.position.y = (camera.position.y * 99 + yy) / 100;
 					Sphere.position.z = (camera.position.z * 99 + zz) / 100;
 					if(moving.doing && save_view.length < max_frame){
-						save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz});
+						save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
 					}
 					if(moving.doing) document.body.style.cursor = "none";
 					else document.body.style.cursor = "default";
