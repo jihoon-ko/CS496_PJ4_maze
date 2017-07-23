@@ -1,9 +1,11 @@
 function Game() { }
 
 Game.prototype.handleNetwork = function(socket) {
-  console.log('Game connection process here');
+  console.log('Game.handleNetwork started');
   console.log(socket);
   // This is where you receive all socket messages
+
+  
 };
 
 Game.prototype.handleLogic = function() {

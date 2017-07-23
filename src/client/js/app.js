@@ -13,14 +13,42 @@ var KEY_ENTER = 13;
 
 var game = new Game();
 
-function startGame() {
-  playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '');
-  document.getElementById('gameAreaWrapper').style.display = 'block';
-  document.getElementById('startMenuWrapper').style.display = 'none';
-  socket = io();
-  SetupSocket(socket);
-  animloop();
-}
+window.onload = function() {
+  'use strict';
+
+  var btnStart = document.getElementById('startButton');
+  var btnSpectate = document.getElementById('spectateButton');
+  var btnVR = document.getElementById('vrButton');
+  var nickErrorText = document.querySelector('#startMenu .input-error');
+
+  btnStart.onclick = function () {
+    // check if the nick is valid
+    if (validNick()) {
+      startGame('player');
+    } else {
+      nickErrorText.style.display = 'inline';
+    }
+  };
+
+  btnSpectate.onclick = function () {
+    startGame('spectator');
+  };
+
+  btnVR.onclick = function () {
+
+  };
+
+  playerNameInput.addEventListener('keypress', function (e) {
+    var key = e.which || e.keyCode;
+    if (key === KEY_ENTER) {
+      if (validNick()) {
+        startGame('player');
+      } else {
+        nickErrorText.style.display = 'inline';
+      }
+    }
+  });
+};
 
 // check if nick is valid alphanumeric characters (and underscores)
 function validNick() {
@@ -29,36 +57,19 @@ function validNick() {
   return regex.exec(playerNameInput.value) !== null;
 }
 
-window.onload = function() {
-  'use strict';
-
-  var btn = document.getElementById('startButton'),
-  nickErrorText = document.querySelector('#startMenu .input-error');
-
-  btn.onclick = function () {
-
-  // check if the nick is valid
-  if (validNick()) {
-    startGame();
-  } else {
-    nickErrorText.style.display = 'inline';
-  }
-  };
-
-  playerNameInput.addEventListener('keypress', function (e) {
-  var key = e.which || e.keyCode;
-
-  if (key === KEY_ENTER) {
-    if (validNick()) {
-    startGame();
-    } else {
-    nickErrorText.style.display = 'inline';
-    }
-  }
+function startGame(type) {
+  global.playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0,25);
+  global.playerType = type;
+  document.getElementById('gameAreaWrapper').style.display = 'block';
+  document.getElementById('startMenuWrapper').style.display = 'none';
+  socket = io({
+    query: {type: type}
   });
-};
+  setupSocket(socket);
+  animloop();
+}
 
-function SetupSocket(socket) {
+function setupSocket(socket) {
   game.handleNetwork(socket);
 }
 
