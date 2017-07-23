@@ -32,12 +32,12 @@
 			var renderer = new THREE.WebGLRenderer({canvas: cvs});
 			renderer.setSize( window.innerWidth, window.innerHeight );
 			renderer.setClearColor(0xaaccff);
-			
+
 			// about rendered Object
 			var plane_texture;
 			var Bottom, Sphere;
 			var wall;
-			
+
 			// constant value
 			var y_val = 1;
 			var gravity = 9.8;
@@ -58,15 +58,15 @@
 			var finished = false;
 			var ctx, planeCanvas;
 			var show_minimap = false;
-			
+
 			// about maps
 			var maze;
 			var row, col;
-			
+
 			document.body.appendChild( renderer.domElement );
 			window.onload = initGame;
 			window.addEventListener( 'resize', onWindowResize, false );
-			
+
 			function initGame(){
 				planeCanvas = document.getElementById('plane');
 				ctx = planeCanvas.getContext('2d');
@@ -75,7 +75,7 @@
 				window.addEventListener( 'mousemove', onMouseMove, true);
 				window.addEventListener( 'mousedown', onMouseDown, true);
 				initValue();
-				loadMap();	
+				loadMap();
 
 			}
 			function initValue(){
@@ -150,7 +150,7 @@
 								var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
 								wall[i][j] = new THREE.Mesh(wall_geometry, material);
 								wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
-								scene.add(wall[i][j]); 
+								scene.add(wall[i][j]);
 							}
 						}
 					}
@@ -177,14 +177,14 @@
 						var now_time = (now_time - jump.time) / 1000.0;
 						if(now_time > 2.0 * Math.PI / 9.8){
 							jump.jumping = false;
-						}else{       
+						}else{
 							plus_y = Math.PI * now_time - 0.5 * gravity * now_time * now_time;
 						}
 					}
 					coor.v_x = 0; coor.v_z = 0;
 					if(press.up){
 						coor.v_z -= moveScale.move * Math.cos(coor.deg);
-						coor.v_x += moveScale.move * Math.sin(coor.deg); 	
+						coor.v_x += moveScale.move * Math.sin(coor.deg);
 					}
 					if(press.down){
 						coor.v_z += moveScale.move * Math.cos(coor.deg);
@@ -196,7 +196,7 @@
 					}
 					if(press.right){
 						coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-						coor.v_z += moveScale.move * Math.sin(coor.deg) / 2; 		
+						coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;
 					}
 					//console.log(delta_time, coor.v_x, coor.v_z);
 					var prev_x = coor.x, prev_z = coor.z;
@@ -338,7 +338,7 @@
 					}
 					// Down
 					if(e.keyCode == 40 || e.keyCode == 83){
-						if(!(press.down)){ 	
+						if(!(press.down)){
 							press.down = true;
 						}
 					}

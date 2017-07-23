@@ -14,7 +14,7 @@ gulp.task('build', ['build-client', 'build-server']);
 
 gulp.task('lint', function () {
   //return gulp.src(['**/*.js', '!node_modules/**/*.js', '!bin/**/*.js'])
-  return gulp.src(['src/**/*.js'])
+  return gulp.src(['src/**/*.js', '!src/client/js/three.min.js'])
     .pipe(jshint({
       esnext: true
     }))
@@ -45,11 +45,11 @@ gulp.task('build-server', ['lint'], function () {
     .pipe(gulp.dest('bin/server/'));
 });
 
-gulp.task('watch', ['build'], function () {
-  gulp.watch(['src/client/**/*.*'], ['build-client', 'move-client']);
-  gulp.watch(['src/server/*.*', 'src/server/**/*.js'], ['build-server']);
-  gulp.start('run-only');
-});
+// gulp.task('watch', ['build'], function () {
+//   gulp.watch(['src/client/**/*.*'], ['build-client', 'move-client']);
+//   gulp.watch(['src/server/*.*', 'src/server/**/*.js'], ['build-server']);
+//   gulp.start('run-only');
+// });
 
 //gulp.task('todo', ['lint'], function() {
 gulp.task('todo', [], function() {

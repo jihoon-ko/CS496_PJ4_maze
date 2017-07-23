@@ -1,19 +1,10 @@
-var Canvas = require('./canvas');
+var io = require('socket.io-client');
 var global = require('./global');
+var game = require('./game');
 
 var playerName;
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
-
-// var screenWidth = window.innerWidth;
-// var screenHeight = window.innerHeight;
-window.canvas = new Canvas();
-var c = window.canvas.cv;
-
-var canvas = c.getContext('2d');
-c.width = screenWidth; c.height = screenHeight;
-
-var game = new Game();
 
 window.onload = function() {
   var btnStart = document.getElementById('startButton');
@@ -62,39 +53,28 @@ function startGame(type) {
   global.playerType = type;
   document.getElementById('gameAreaWrapper').style.display = 'block';
   document.getElementById('startMenuWrapper').style.display = 'none';
-  socket = io({
-    query: {type: type}
-  });
-  setupSocket(socket);
-  animloop();
-}
 
-function setupSocket(socket) {
+  socket = io();
   game.handleNetwork(socket);
+  //animloop();
 }
 
-window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame   ||
-    window.webkitRequestAnimationFrame ||
-    window.mozRequestAnimationFrame  ||
-    function( callback ){
-    window.setTimeout(callback, 1000 / 60);
-    };
-})();
+// window.requestAnimFrame = (function(){
+//   return  window.requestAnimationFrame   ||
+//     window.webkitRequestAnimationFrame ||
+//     window.mozRequestAnimationFrame  ||
+//     function( callback ){
+//       window.setTimeout(callback, 1000 / 60);
+//     };
+// })();
 
-function animloop(){
-  requestAnimFrame(animloop);
-  gameLoop();
-}
-
-function gameLoop() {
-  game.handleLogic();
-  game.handleGraphics(canvas);
-}
-
-window.addEventListener('resize', function() {
-  screenWidth = window.innerWidth;
-  screenHeight = window.innerHeight;
-  c.width = screenWidth;
-  c.height = screenHeight;
-}, true);
+//적절히 교체해야..
+// function animloop(){
+//   requestAnimFrame(animloop);
+//   gameLoop();
+// }
+//
+// function gameLoop() {
+//   game.handleLogic();
+//   game.handleGraphics();
+// }
