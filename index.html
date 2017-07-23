@@ -43,7 +43,7 @@
 			var gravity = 9.8;
 			var moveScale = {move: 6, deg: 2};
 			var block_size = 5;
-			var block_height = 10;
+			var block_height = 5;
 			var server_url = "http://52.78.113.241:3000";
 
 			// about controlling
@@ -54,7 +54,7 @@
 
 			//about game
 			var save_view = [];
-			var max_frame = 10000;
+			var max_frame = 30000;
 			var finished = false;
 			var ctx, planeCanvas;
 			var show_minimap = false;
@@ -70,16 +70,12 @@
 			function initGame(){
 				planeCanvas = document.getElementById('plane');
 				ctx = planeCanvas.getContext('2d');
-				initValue();
-				loadMap();	
-				initObject();
-
 				window.addEventListener( 'keyup', onKeyUp, true);
 				window.addEventListener( 'keydown', onKeyDown, true);
 				window.addEventListener( 'mousemove', onMouseMove, true);
 				window.addEventListener( 'mousedown', onMouseDown, true);
-					
-				animate();
+				initValue();
+				loadMap();	
 
 			}
 			function initValue(){
@@ -90,30 +86,35 @@
 				jump = {jumping: false, time: 0};
 				prev_time = new Date().getTime();
 			}
-			function loadMap(){
-				maze = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-						[1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
-						[1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
-						[1, 0, 1, 0, 1, 0, 0, 0, 1, 1],
-						[1, 2, 0, 0, 1, 0, 1, 0, 1, 1],
-						[1, 0, 1, 1, 1, 1, 1, 0, 0, 1],
-						[1, 0, 1, 0, 0, 1, 0, 0, 1, 1],
-						[1, 0, 0, 0, 1, 1, 0, 1, 1, 1],
-						[1, 0, 1, 0, 0, 1, 0, 0, 0, 0],
-						[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]];
-				row = maze.length;
-				col = maze[0].length;
-				coor.x = (row-2) * block_size;
-				coor.z = block_size;
-				for(var i=0;i<row;i++){
-					for(var j=0;j<col;j++){
-						if(maze[i][j] == 2){
-							coor.x = j * block_size;
-							coor.z = i * block_size;
-							maze[i][j] = 0;
+
+			function initMap(){
+				try{
+					var myJson = JSON.parse(httpRequest.responseText);
+					maze = myJson.map;
+					console.log(myJson.map.length);
+					row = maze.length;
+					col = maze[0].length;
+					coor.x = (row-2) * block_size;
+					coor.z = block_size;
+					for(var i=0;i<row;i++){
+						for(var j=0;j<col;j++){
+							if(maze[i][j] == 2){
+								coor.x = j * block_size;
+								coor.z = i * block_size;
+								maze[i][j] = 0;
+							}
 						}
 					}
+					initObject();
+					animate();
+				}catch(err){
 				}
+			}
+			function loadMap(){
+				httpRequest = new XMLHttpRequest();
+				httpRequest.onreadystatechange = initMap;
+				httpRequest.open("GET", server_url + '/getmap');
+				httpRequest.send();
 			}
 			function initObject(){
 				var loadTexture = function(){
@@ -273,23 +274,23 @@
 					}else{
 						if(!moving.doing || show_minimap){
 							ctx.fillStyle = '#777777';
-							ctx.fillRect(width / 2 - 20 * col - 20, height / 2 - 20 * row - 20, 40 * col + 40, 40 * row + 40);
-							for(var i=0;i<row;i++){
-								for(var j=0;j<col;j++){
-									if(maze[i][j] == 1){
+							ctx.fillRect(width / 2 - 240, height / 2 - 240, 480, 480);
+							var rr = Math.floor((coor.z / block_size) + 0.5);
+							var cc = Math.floor((coor.x / block_size) + 0.5);
+							for(var i=-5;i<=5;i++){
+								for(var j=-5;j<=5;j++){
+									if(rr + i < 0 || cc + j < 0 || rr + i >= row || cc + j >= col){
+										continue;
+									}else if(maze[rr + i][cc + j] === 1){
 										ctx.fillStyle = '#000000';
-									}else if(maze[i][j] == 0){
-										var rr = Math.floor((coor.z / block_size) + 0.5);
-										var cc = Math.floor((coor.x / block_size) + 0.5);
-										if(i == rr && j == cc){
+									}else if(maze[rr + i][cc + j] === 0){
+										if(i == 0 && j == 0){
 											ctx.fillStyle = '#FFFF00';
 										}else{
 											ctx.fillStyle = '#FFFFFF';
 										}
-									}else{
-										ctx.fillStyle = '#FF0000';
 									}
-									ctx.fillRect(width / 2 - 20 * col + 40 * j + 2, height / 2 - 20 * row + 40 * i + 2, 36, 36);
+									ctx.fillRect(width / 2 - 20  + 40 * j + 2, height / 2 - 20 + 40 * i + 2, 36, 36);
 								}
 							}
 						}

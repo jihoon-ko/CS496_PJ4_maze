@@ -61,4 +61,14 @@ router.get('/showmap', function(req, res){
         return res.json(maps);
     });
 });
+
+router.get('/getmap', function(req, res){
+    Map.count().exec( function(err, count){
+        var rand = Math.floor(Math.random() * count);
+        Map.findOne().skip(rand).exec( function(err, result){
+            return res.json({map: result.map});
+        });
+    });
+});
+
 module.exports = router;
