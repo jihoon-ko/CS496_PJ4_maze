@@ -76,7 +76,7 @@
 						}
 					}
 					res[1][1] = 2;
-					res[row-2][col-1] = 3;
+					res[row-2][col-1] = 0;
 					for(var r = 2; r < row; r++){
 						for(var c = 0; c < col; c++){
 							if(r%2 == 0){
@@ -130,7 +130,7 @@
 					var maze = generateMaze(makeMaze(12,12));
 					// POST 12 by 12 maze on server
 					httpRequest = new XMLHttpRequest();
-					httpRequest.onreadystatechange = alertContents;
+					//httpRequest.onreadystatechange = none;
 					httpRequest.open('POST', 'http://52.78.113.241:3000/mapupload');
 					httpRequest.setRequestHeader("Content-type", "application/json");
 					httpRequest.send(JSON.stringify({map: maze}));
