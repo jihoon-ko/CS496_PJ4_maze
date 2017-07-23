@@ -16,7 +16,12 @@ var mazeSchema = new Schema({
     record: Schema.Types.Mixed
 });
 
+var mapSchema = new Schema({
+    map: Schema.Types.Mixed
+});
+
 Maze = mongoose.model('maze', mazeSchema);
+Map = mongoose.model('map', mapSchema);
 /* GET home page. */
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
@@ -35,9 +40,25 @@ router.post('/upload', function(req, res){
     });
 });
 
+router.post('/mapupload', function(req, res){
+    mymap = req.body.map;
+    new_map = new Map();
+    new_map.map = mymap;
+    new_map.markModified('map');
+    new_map.save(function(err){
+        return res.status(204).end();
+    });
+});
+
 router.get('/download', function(req, res){
     Maze.findOne({}, function(err, maze){
         return res.json(maze);
+    });
+});
+
+router.get('/showmap', function(req, res){
+    Map.find({}, function(err, maps){
+        return res.json(maps);
     });
 });
 module.exports = router;
