@@ -48,6 +48,27 @@ var ambientLight;
 document.body.appendChild( renderer.domElement );
 window.addEventListener( 'resize', onWindowResize, false );
 
+var fontLoader = new THREE.FontLoader();
+var fontGeometry;
+var name3d[20];
+
+fontLoader.load('/assets/koverwatch.json', function(font){
+  fontGeometry = new THREE.TextGeometry( '', {
+    font: font,
+    size: 4,
+    height: 5,
+    curveSegments: 20,
+    bevelEnabled: false,
+    bevelThickness: 0.1,
+    bevelSize: 0.1,
+    bevelSegments: 1
+  });
+  var fontMaterial = new THREE.MeshBasicMaterial({color: 0x000000});
+  for(var i=0;i<20;i++){
+    name3d[i] = new THREE.Mesh(fontGeometry, fontMaterial);
+    scene.add(name3d[i]);
+  }
+});
 function restartGame(){
   initModel();
   initValue();
@@ -215,7 +236,7 @@ function animate(){
     coor.v_x = 0; coor.v_z = 0;
     if(press.up){
       coor.v_z -= moveScale.move * Math.cos(coor.deg);
-      coor.v_x += moveScale.move * Math.sin(coor.deg);  
+      coor.v_x += moveScale.move * Math.sin(coor.deg);
     }
     if(press.down){
       coor.v_z += moveScale.move * Math.cos(coor.deg);
