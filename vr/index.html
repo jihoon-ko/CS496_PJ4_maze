@@ -20,7 +20,7 @@
 				document.body.appendChild( WEBVR.getMessageContainer( message ) );
 			} );
 			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 101, window.innerWidth/window.innerHeight, 0.001, 1000 );
+			var camera = new THREE.PerspectiveCamera( 101, window.innerWidth/window.innerHeight, 0.001, 100 );
 
 			//var cvs = document.getElementById('myCanvas');
 			var renderer = new THREE.WebGLRenderer(/*{canvas: cvs}*/);

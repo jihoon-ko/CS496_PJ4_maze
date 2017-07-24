@@ -26,7 +26,7 @@
 		<script src="js/webvr.js"></script>
 		<script>
 			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 1000 );
+			var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 100 );
 
 			var cvs = document.getElementById('myCanvas');
 			var renderer = new THREE.WebGLRenderer({canvas: cvs});
@@ -79,7 +79,7 @@
 
 			}
 			function initValue(){
-				coor = {x: 0, y: y_val, z: 0, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
+				coor = {x: 0, y: y_val, z: 0, deg: -Math.PI, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
 				moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
 				press = {left: false, right: false, up: false, down: false};
 				cursor_now = {x: 0, y: 0};
