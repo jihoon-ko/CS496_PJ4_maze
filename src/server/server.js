@@ -18,7 +18,7 @@ function getAllUsers() {
 }
 var sockets = {};
 
-var maze;
+var maze = [[1,1,1,1,1],[1,2,1,1,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,0],[1,1,1,1,1]];
 
 io.on('connection', function (socket) {
   console.log("Somebody connected!");
