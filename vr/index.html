@@ -48,16 +48,14 @@
 			var row; var col;
 			var Bottom;
 			function initState(){
-				if(downloaded < 3 && httpRequest.status == 200){
-					//downloaded = true;
-					if(downloaded == 2){
-						//console.log(httpRequest.responseText);
+				if(httpRequest.status == 200){
+					try{
 						var myJson = JSON.parse(httpRequest.responseText);
 						map = myJson.mp;
 						record = myJson.record;
 						initShape();
+					}catch(err){
 					}
-					downloaded += 1;
 				}
 			}	
 			function init(){
@@ -76,10 +74,10 @@
 					wall[i] = new Array(col);
 					for(var j=0;j<col;j++){
 						if(map[i][j] == 1){
-							var wall_geometry = new THREE.BoxGeometry( 5, 10, 5 );
+							var wall_geometry = new THREE.BoxGeometry( 5, 5, 5 );
 							var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
 							wall[i][j] = new THREE.Mesh(wall_geometry, material);
-							wall[i][j].position.set(j * 5, 5, i * 5);
+							wall[i][j].position.set(j * 5, 2.5, i * 5);
 							scene.add(wall[i][j]); 
 						}
 					}
@@ -116,7 +114,7 @@
 						if(map[i][j] == 1){
 							var xx = -(j * 5 - record[frame].x);
 							var zz = -(i * 5 - record[frame].z);
-							wall[i][j].position.set(xx * Math.cos(xdeg) - zz * Math.sin(xdeg), 4 - record[frame].y, xx * Math.sin(xdeg) + zz * Math.cos(xdeg)); 
+							wall[i][j].position.set(xx * Math.cos(xdeg) - zz * Math.sin(xdeg), 1.5 - record[frame].y, xx * Math.sin(xdeg) + zz * Math.cos(xdeg)); 
 							wall[i][j].rotation.y = -xdeg;
 						}
 					}

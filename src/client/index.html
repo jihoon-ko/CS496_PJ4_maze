@@ -8,7 +8,8 @@
 </head>
 <body>
   <div id="gameAreaWrapper" style="display:none;">
-    <canvas tabindex="1" id="cvs"></canvas>
+    <canvas id="myCanvas"></canvas>
+		<canvas id="plane"></canvas>
   </div>
   <div id="startMenuWrapper">
     <div id="startMenu">
@@ -17,6 +18,9 @@
       <b class="input-error">Nick name must be alphanumeric characters only!</b>
       <br />
       <button id="startButton">Play</button>
+      <button id="spectateButton">Spectate</button>
+      <button id="vrButton">See Last Replay with VR</button>
+
     </div>
   </div>
   <script>
@@ -24,7 +28,7 @@
     var screenHeight = window.innerHeight;
   </script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="./js/game.js"></script>
+  <script src="js/three.min.js"></script>
   <script src="./js/app.js"></script>
 </body>
 </html>

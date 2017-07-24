@@ -13,120 +13,132 @@
 				z-index: -1;
 				left: 0; top: 0;
 			}
-			canvas#aim {
+			canvas#plane {
 				z-index: 10;
-				left: 0; top: 0;
-			}
-			canvas#minimap{
-				z-index: 20;
 				left: 0; top: 0;
 			}
 		</style>
 	</head>
 	<body>
 		<canvas id="myCanvas"></canvas>
-		<canvas id="aim"></canvas>
-		<canvas id="minimap"></canvas>
+		<canvas id="plane"></canvas>
 		<script src="js/three.js"></script>
 		<script src="js/webvr.js"></script>
 		<script>
-			var loader = new THREE.TextureLoader();
-			var texture = loader.load( "assets/UV_Grid_Sm.jpg" );
-			texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-			texture.repeat.set( 0.008, 0.008 );
-			
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 1000 );
 
 			var cvs = document.getElementById('myCanvas');
 			var renderer = new THREE.WebGLRenderer({canvas: cvs});
-			renderer.domElement.id = 'myCanvas';
 			renderer.setSize( window.innerWidth, window.innerHeight );
 			renderer.setClearColor(0xaaccff);
+
+			// about rendered Object
+			var plane_texture;
+			var Bottom, Sphere;
+			var wall;
+
+			// constant value
 			var y_val = 1;
 			var gravity = 9.8;
-			var Bottom, Sphere;
-			var coor = {x: 0, y: y_val, z: 0, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
-			var moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
-			var press = {left: false, right: false, up: false, down: false};
 			var moveScale = {move: 6, deg: 2};
-			var cursor_now = {x: 0, y: 0};
-			var jump = {jumping: false, time: 0};
-			var prev_time = 0;
+			var block_size = 5;
+			var block_height = 5;
+			var server_url = "http://52.78.113.241:3000";
+
+			// about controlling
+			var coor, moving, press;
+			var cursor_now;
+			var jump;
+			var prev_time;
+
+			//about game
 			var save_view = [];
-			var row, col;
-			var max_frame = 3000;
+			var max_frame = 30000;
 			var finished = false;
-			/*var maze = [[1, 1, 1, 1, 1, 1, 1],
-						[1, 0, 0, 0, 1, 0, 0],
-						[1, 0, 1, 0, 1, 0, 1], 
-						[1, 0, 1, 0, 1, 0, 1], 
-						[1, 0, 1, 0, 0, 0, 1], 
-						[1, 0, 1, 0, 1, 0, 1], 
-						[1, 2, 1, 0, 0, 0, 1], 
-						[1, 1, 1, 1, 1, 1, 1]];*/
-			var maze = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-						[1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
-						[1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
-						[1, 0, 1, 0, 1, 0, 0, 0, 1, 1],
-						[1, 2, 0, 0, 1, 0, 1, 0, 1, 1],
-						[1, 0, 1, 1, 1, 1, 1, 0, 0, 1],
-						[1, 0, 1, 0, 0, 1, 0, 0, 1, 1],
-						[1, 0, 0, 0, 1, 1, 0, 1, 1, 1],
-						[1, 0, 1, 0, 0, 1, 0, 0, 0, 0],
-						[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]];
+			var ctx, planeCanvas;
 			var show_minimap = false;
 
-			var ctx, ctxmap;
-			window.onload = init;
-			
-			function init(){
-				/*
-				WEBVR.checkAvailability().catch( function( message ) {
-					document.body.appendChild( WEBVR.getMessageContainer( message ) );
-				} );
-				*/
-				document.body.appendChild( renderer.domElement );
-				/*
-				renderer.vr.enabled = true;
-				WEBVR.getVRDisplay( function ( display ) {
-					renderer.vr.setDevice( display );
-					document.body.appendChild( WEBVR.getButton( display, renderer.domElement ) );
-				} );
-				*/
-				window.addEventListener( 'resize', onWindowResize, false );
+			// about maps
+			var maze;
+			var row, col;
+
+			document.body.appendChild( renderer.domElement );
+			window.onload = initGame;
+			window.addEventListener( 'resize', onWindowResize, false );
+
+			function initGame(){
+				planeCanvas = document.getElementById('plane');
+				ctx = planeCanvas.getContext('2d');
 				window.addEventListener( 'keyup', onKeyUp, true);
 				window.addEventListener( 'keydown', onKeyDown, true);
 				window.addEventListener( 'mousemove', onMouseMove, true);
 				window.addEventListener( 'mousedown', onMouseDown, true);
-				
-				var drawBottom = function(){
-					var sqPts = [];
+				initValue();
+				loadMap();
+
+			}
+			function initValue(){
+				coor = {x: 0, y: y_val, z: 0, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
+				moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
+				press = {left: false, right: false, up: false, down: false};
+				cursor_now = {x: 0, y: 0};
+				jump = {jumping: false, time: 0};
+				prev_time = new Date().getTime();
+			}
+
+			function initMap(){
+				try{
+					var myJson = JSON.parse(httpRequest.responseText);
+					maze = myJson.map;
+					console.log(myJson.map.length);
 					row = maze.length;
 					col = maze[0].length;
-					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
-					sqPts.push(new THREE.Vector2(col * 5, -row * 5));
-					sqPts.push(new THREE.Vector2(col * 5, row * 5));
-					sqPts.push(new THREE.Vector2(-col * 5, row * 5));
-					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
+					coor.x = (row-2) * block_size;
+					coor.z = block_size;
+					for(var i=0;i<row;i++){
+						for(var j=0;j<col;j++){
+							if(maze[i][j] == 2){
+								coor.x = j * block_size;
+								coor.z = i * block_size;
+								maze[i][j] = 0;
+							}
+						}
+					}
+					initObject();
+					animate();
+				}catch(err){
+				}
+			}
+			function loadMap(){
+				httpRequest = new XMLHttpRequest();
+				httpRequest.onreadystatechange = initMap;
+				httpRequest.open("GET", server_url + '/getmap');
+				httpRequest.send();
+			}
+			function initObject(){
+				var loadTexture = function(){
+					var loader = new THREE.TextureLoader();
+					texture = loader.load( "assets/UV_Grid_Sm.jpg" );
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 0.008, 0.008 );
+				}
+				var drawBottom = function(){
+					var sqPts = [];
+					sqPts.push(new THREE.Vector2(-col * block_size, -row * block_size));
+					sqPts.push(new THREE.Vector2( col * block_size, -row * block_size));
+					sqPts.push(new THREE.Vector2( col * block_size,  row * block_size));
+					sqPts.push(new THREE.Vector2(-col * block_size,  row * block_size));
+					sqPts.push(new THREE.Vector2(-col * block_size, -row * block_size));
 					var square = new THREE.Shape(sqPts);
 					var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
 					Bottom.position.set(0, 0, 0);
 					Bottom.rotation.x = -Math.PI/2;
 					scene.add(Bottom);
-
 					var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
 					var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
 					Sphere = new THREE.Mesh( geometry, material );
 					//scene.add( Sphere );
-					var material = new THREE.SpriteMaterial( { color: 0x000000 } );
-					/*
-					sprite1 = new THREE.Sprite(material);
-					sprite1.scale.set(0.05,0.0028,1);
-					sprite2 = new THREE.Sprite(material);
-					sprite2.scale.set(0.006,0.05,1);
-					scene.add(sprite1); scene.add(sprite2);
-					*/
 				}
 				var makemaze = function(){
 					wall = new Array(row);
@@ -134,22 +146,18 @@
 						wall[i] = new Array(col);
 						for(var j=0;j<col;j++){
 							if(maze[i][j] == 1){
-								var wall_geometry = new THREE.BoxGeometry( 5, 10, 5 );
+								var wall_geometry = new THREE.BoxGeometry( block_size, block_height, block_size );
 								var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
 								wall[i][j] = new THREE.Mesh(wall_geometry, material);
-								wall[i][j].position.set(j * 5, 5, i * 5);
-								scene.add(wall[i][j]); 
-							}else if(maze[i][j] == 2){
-								coor.x = j * 5;
-								coor.z = i * 5;
-								maze[i][j] = 0;
+								wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
+								scene.add(wall[i][j]);
 							}
 						}
 					}
 				}
+				loadTexture();
 				drawBottom();
 				makemaze();
-				animate();
 			}
 			function alertContents(){
 				console.log(httpRequest.status);
@@ -169,14 +177,14 @@
 						var now_time = (now_time - jump.time) / 1000.0;
 						if(now_time > 2.0 * Math.PI / 9.8){
 							jump.jumping = false;
-						}else{       
+						}else{
 							plus_y = Math.PI * now_time - 0.5 * gravity * now_time * now_time;
 						}
 					}
 					coor.v_x = 0; coor.v_z = 0;
 					if(press.up){
 						coor.v_z -= moveScale.move * Math.cos(coor.deg);
-						coor.v_x += moveScale.move * Math.sin(coor.deg); 	
+						coor.v_x += moveScale.move * Math.sin(coor.deg);
 					}
 					if(press.down){
 						coor.v_z += moveScale.move * Math.cos(coor.deg);
@@ -188,13 +196,13 @@
 					}
 					if(press.right){
 						coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-						coor.v_z += moveScale.move * Math.sin(coor.deg) / 2; 		
+						coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;
 					}
 					//console.log(delta_time, coor.v_x, coor.v_z);
 					var prev_x = coor.x, prev_z = coor.z;
 					coor.x += delta_time * coor.v_x; coor.z += delta_time * coor.v_z;
-					var rr = Math.floor((coor.z / 5) + 0.5);
-					var cc = Math.floor((coor.x / 5) + 0.5);
+					var rr = Math.floor((coor.z / block_size) + 0.5);
+					var cc = Math.floor((coor.x / block_size) + 0.5);
 					//console.log(rr,cc, maze[rr][cc]);
 					if(maze[rr][cc] == 1){
 						coor.x = prev_x * 1.03 - coor.x * 0.03; coor.z = prev_z * 1.03 - coor.z * 0.03;
@@ -207,7 +215,7 @@
 						console.log(save_view);
 						httpRequest = new XMLHttpRequest();
 						httpRequest.onreadystatechange = alertContents;
-						httpRequest.open('POST', 'http://52.78.113.241:3000/upload');
+						httpRequest.open('POST', server_url + '/upload');
 						httpRequest.setRequestHeader("Content-type", "application/json");
 						httpRequest.send(JSON.stringify({map: maze, record: save_view}));
 					}
@@ -236,11 +244,10 @@
 						}
 					}
 				}
-				var twoTask = function(){
-					var aimCanvas = document.getElementById('aim');
-					ctx = aimCanvas.getContext('2d');
-					aimCanvas.width = width;
-					aimCanvas.height = height;
+				var planeTask = function(){
+					planeCanvas.width = width;
+					planeCanvas.height = height;
+					ctx.globalAlpha = 0.5;
 					ctx.strokeStyle="#FFFFFF";
 					ctx.beginPath();
 					ctx.moveTo(width/2 - 10, height/2);
@@ -258,44 +265,39 @@
 					ctx.moveTo(width/2, height/2 + 10);
 					ctx.lineTo(width/2, height/2 + 2);
 					ctx.stroke();
-					var mapCanvas = document.getElementById('minimap');
-					ctxmap = mapCanvas.getContext('2d');
-					mapCanvas.width = width;
-					mapCanvas.height = height;
-					ctxmap.globalAlpha = 0.5;
 					if(finished){
-						ctxmap.fillStyle = '#777777';
-						ctxmap.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
+						ctx.fillStyle = '#777777';
+						ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
 						ctx.font="30px Arial"
 						ctx.textAlign = "center"
 						ctx.fillText("Congraturations!", width/2, height/2 + 10);
 					}else{
 						if(!moving.doing || show_minimap){
-							ctxmap.fillStyle = '#777777';
-							ctxmap.fillRect(width / 2 - 20 * col - 20, height / 2 - 20 * row - 20, 40 * col + 40, 40 * row + 40);
-							for(var i=0;i<row;i++){
-								for(var j=0;j<col;j++){
-									if(maze[i][j] == 1){
-										ctxmap.fillStyle = '#000000';
-									}else if(maze[i][j] == 0){
-										var rr = Math.floor((coor.z / 5) + 0.5);
-										var cc = Math.floor((coor.x / 5) + 0.5);
-										if(i == rr && j == cc){
-											ctxmap.fillStyle = '#FFFF00';
+							ctx.fillStyle = '#777777';
+							ctx.fillRect(width / 2 - 240, height / 2 - 240, 480, 480);
+							var rr = Math.floor((coor.z / block_size) + 0.5);
+							var cc = Math.floor((coor.x / block_size) + 0.5);
+							for(var i=-5;i<=5;i++){
+								for(var j=-5;j<=5;j++){
+									if(rr + i < 0 || cc + j < 0 || rr + i >= row || cc + j >= col){
+										continue;
+									}else if(maze[rr + i][cc + j] === 1){
+										ctx.fillStyle = '#000000';
+									}else if(maze[rr + i][cc + j] === 0){
+										if(i == 0 && j == 0){
+											ctx.fillStyle = '#FFFF00';
 										}else{
-											ctxmap.fillStyle = '#FFFFFF';
+											ctx.fillStyle = '#FFFFFF';
 										}
-									}else{
-										ctxmap.fillStyle = '#FF0000';
 									}
-									ctxmap.fillRect(width / 2 - 20 * col + 40 * j + 2, height / 2 - 20 * row + 40 * i + 2, 36, 36);
+									ctx.fillRect(width / 2 - 20  + 40 * j + 2, height / 2 - 20 + 40 * i + 2, 36, 36);
 								}
 							}
 						}
 					}
 				}
 				movingTask();
-				twoTask();
+				planeTask();
 				renderer.render(scene, camera);
 
 			}
@@ -336,7 +338,7 @@
 					}
 					// Down
 					if(e.keyCode == 40 || e.keyCode == 83){
-						if(!(press.down)){ 	
+						if(!(press.down)){
 							press.down = true;
 						}
 					}
