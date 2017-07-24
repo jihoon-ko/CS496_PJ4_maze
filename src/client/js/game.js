@@ -84,11 +84,11 @@ function addModelToScene(geometry, materials){
   AndroidGeometry = geometry;
   AndroidMaterial = new THREE.MeshFaceMaterial(materials);
   android = new Array(20);
-  for(var i=0;i<20;i++){
-    android[i] = new THREE.Mesh(AndroidGeometry, AndroidMaterial);
-    android[i].scale.set(0.1, 0.1, 0.1);
-    android[i].position.set(0,-1000,0);
-    scene.add(android[i]);
+  for(var j=0;j<20;j++){
+    android[j] = new THREE.Mesh(AndroidGeometry, AndroidMaterial);
+    android[j].scale.set(0.1, 0.1, 0.1);
+    android[j].position.set(0,-1000,0);
+    scene.add(android[j]);
   }
   ambientLight = new THREE.AmbientLight(0xffffff);
   scene.add(ambientLight);
@@ -255,15 +255,15 @@ function animate(){
     var yy = (((y_val + real_y * 9) / 10) + plus_y) + 100 * Math.sin(coor.ydeg);
     var zz = coor.z - 100 * Math.cos(coor.deg);
     camera.lookAt(new THREE.Vector3(xx, yy, zz));
-    if(android){
-      android.position.x = (camera.position.x * 99 + xx) / 100;
-      android.position.y = camera.position.y - 1; //(camera.position.y * 99 + yy) / 100;
-      android.position.z = (camera.position.z * 99 + zz) / 100;
-      android.rotation.y = Math.PI-coor.deg;
+    if(android[0]){
+      android[0].position.x = (camera.position.x * 99 + xx) / 100;
+      android[0].position.y = camera.position.y - 1; //(camera.position.y * 99 + yy) / 100;
+      android[0].position.z = (camera.position.z * 99 + zz) / 100;
+      android[0].rotation.y = Math.PI-coor.deg;
       for(var i=0;i<20;i++){
-        android.morphTargetInfluences[i] = 0;
+        android[0].morphTargetInfluences[i] = 0;
       }
-      android.morphTargetInfluences[(coor.frame % 20)] = 1;
+      android[0].morphTargetInfluences[(coor.frame % 20)] = 1;
       //android.morphTargetInfluences[((coor.frame/3) % 20)] = 1 - (coor.frame%3);
       //android.morphTargetInfluences[(((coor.frame/3)+1) % 20)] = (coor.frame%3);
     }
@@ -273,7 +273,7 @@ function animate(){
     if(moving.doing && save_view.length < max_frame){
       save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
     }
-    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz});
+    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20)});
     if(moving.doing) document.body.style.cursor = "none";
     else document.body.style.cursor = "default";
     if(moving.doing){
