@@ -42,6 +42,7 @@
 
 			var scene, camera, renderer, controls;
 			var cube;
+			var previousCube;
 
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
@@ -147,19 +148,23 @@
 				controls.enableZoom = false;
 
 			}
+			
+			function render() {
+					requestAnimationFrame(render);
+					//cube.rotation.x += 0.01;
+					//cube.rotation.y += 0.01;
+					renderer.render(scene, camera);
+				};
 
 			init();
 			
 			function showMaze() {
 				// make maze by input row and col
-
 				
 				function constructMaze() {
-
 					
 					var geometry = new THREE.BoxGeometry( 10, 10, 10 );
 					var material = new THREE.MeshBasicMaterial({color: 0xfffff});
-
 
 					/* example maze
 					var maze = [ [ 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1 ], 
@@ -174,7 +179,7 @@
 								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
 								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]];
 					*/
-					
+
 					maze = generateMaze(makeMaze( document.getElementById("Row").value*1 , document.getElementById("Col").value*1 ));
 
 					// Generate maze
@@ -190,13 +195,6 @@
 					}
 					camera.position.z = ((maze.length+maze[0].length)/2)*1*15;
 				}
-
-				function render() {
-					requestAnimationFrame(render);
-					//cube.rotation.x += 0.01;
-					//cube.rotation.y += 0.01;
-					renderer.render(scene, camera);
-				};
 
 				constructMaze();
 				render();
