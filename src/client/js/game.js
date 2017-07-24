@@ -43,6 +43,7 @@ var row, col;
 // about socket.io
 var who_am_i;
 var other_players;
+var mySocket;
 
 document.body.appendChild( renderer.domElement );
 window.addEventListener( 'resize', onWindowResize, false );
@@ -231,7 +232,7 @@ function animate(){
     if(moving.doing && save_view.length < max_frame){
       save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
     }
-    socket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz});
+    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz});
     if(moving.doing) document.body.style.cursor = "none";
     else document.body.style.cursor = "default";
     if(moving.doing){
@@ -413,6 +414,7 @@ function initSpectator() {
 }
 
 function handleNetwork(socket) {
+  mySocket = socket;
   console.log('game.handleNetwork started');
   console.log('socket: ', socket);
   // This is where you receive all socket messages
