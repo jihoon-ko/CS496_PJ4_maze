@@ -18,6 +18,7 @@ function getAllUsers() {
 }
 var sockets = {};
 
+
 var maze = util.getNewMaze(6,6);
 
 io.on('connection', function (socket) {

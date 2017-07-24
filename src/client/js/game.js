@@ -3,7 +3,7 @@ var THREE = require('./three.min');
 //var Canvas = require('./canvas');
 
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 1000 );
+var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 100 );
 
 var cvs = document.getElementById('myCanvas');
 var renderer = new THREE.WebGLRenderer({canvas: cvs});
@@ -21,7 +21,7 @@ var gravity = 9.8;
 var moveScale = {move: 6, deg: 2};
 var block_size = 5;
 var block_height = 5;
-var server_url = "http://52.78.113.241:3001";
+var server_url = "http://52.78.113.241:3000";
 
 // about controlling
 var coor, moving, press;
@@ -40,11 +40,25 @@ var show_minimap = false;
 var maze;
 var row, col;
 
+// about socket.io
+var who_am_i;
+var other_players;
+var mySocket;
+
+var AndroidGeometry, AndroidMaterial;
+var android;
+var ambientLight;
+
 document.body.appendChild( renderer.domElement );
-window.onload = initGame;
 window.addEventListener( 'resize', onWindowResize, false );
 
-//
+function restartGame(){
+  initModel();
+  initValue();
+  initMap();
+  initObject();
+}
+
 function initGame(){
   planeCanvas = document.getElementById('plane');
   ctx = planeCanvas.getContext('2d');
@@ -52,12 +66,35 @@ function initGame(){
   window.addEventListener( 'keydown', onKeyDown, true);
   window.addEventListener( 'mousemove', onMouseMove, true);
   window.addEventListener( 'mousedown', onMouseDown, true);
+  initModel();
   initValue();
-  loadMap();
+  initMap();
+  initObject();
+  animate();
+}
 
+function initModel(){
+  var jsonLoader = new THREE.JSONLoader();
+  jsonLoader.load("/js/android-animations.js", addModelToScene); 
+}
+function addModelToScene(geometry, materials){
+  for(var i=0;i<materials.length;i++){
+    materials[i].morphTargets = true;
+  }
+  AndroidGeometry = geometry;
+  AndroidMaterial = new THREE.MeshFaceMaterial(materials);
+  android = new Array(20);
+  for(var j=0;j<20;j++){
+    android[j] = new THREE.Mesh(AndroidGeometry, AndroidMaterial);
+    android[j].scale.set(0.1, 0.1, 0.1);
+    android[j].position.set(0,-1000,0);
+    scene.add(android[j]);
+  }
+  ambientLight = new THREE.AmbientLight(0xffffff);
+  scene.add(ambientLight);
 }
 function initValue(){
-  coor = {x: 0, y: y_val, z: 0, deg: 0, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
+  coor = {x: 0, y: y_val, z: 0, deg: -Math.PI, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
   moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
   press = {left: false, right: false, up: false, down: false};
   cursor_now = {x: 0, y: 0};
@@ -65,6 +102,8 @@ function initValue(){
   prev_time = new Date().getTime();
 }
 
+
+/*
 function initMap(){
   try{
     var myJson = JSON.parse(httpRequest.responseText);
@@ -83,22 +122,33 @@ function initMap(){
         }
       }
     }
-    initObject();
-    animate();
   }catch(err){
   }
 }
-function loadMap() {
-  httpRequest = new XMLHttpRequest();
-  httpRequest.onreadystatechange = initMap;
-  httpRequest.open("GET", server_url + '/getmap');
-  httpRequest.send();
+*/
+function initMap(){
+  row = maze.length;
+  col = maze[0].length;
+  coor.x = (row-2) * block_size;
+  coor.z = block_size;
+  for(var i=0;i<row;i++){
+    for(var j=0;j<col;j++){
+      if(maze[i][j] == 2){
+        coor.x = j * block_size;
+        coor.z = i * block_size;
+        maze[i][j] = 0;
+      }
+    }
+  }
 }
 
-function initObject() {
-  var loadTexture = function() {
+function initObject(){
+  while(scene.children.length > 0){
+    scene.remove(scene.children[0]);
+  }
+  var loadTexture = function(){
     var loader = new THREE.TextureLoader();
-    texture = loader.load( "./../assets/UV_Grid_Sm.jpg" );
+    texture = loader.load( "assets/UV_Grid_Sm.jpg" );
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set( 0.008, 0.008 );
   };
@@ -129,7 +179,7 @@ function initObject() {
           var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
           wall[i][j] = new THREE.Mesh(wall_geometry, material);
           wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
-          scene.add(wall[i][j]);
+          scene.add(wall[i][j]); 
         }
       }
     }
@@ -138,12 +188,10 @@ function initObject() {
   drawBottom();
   makemaze();
 }
-
-function alertContents() {
+function alertContents(){
   console.log(httpRequest.status);
 }
-
-function animate() {
+function animate(){
   var width = window.innerWidth; var height = window.innerHeight;
   var movingTask = function(){
     requestAnimationFrame( animate );
@@ -155,17 +203,17 @@ function animate() {
     prev_time = now_time;
     if(press.up || press.down || press.left || press.right) coor.frame += 1;
     if(jump.jumping){
-      now_time = (now_time - jump.time) / 1000.0;
-      if(now_time > 2.0 * Math.PI / 9.8){
+      var jump_time = (now_time - jump.time) / 1000.0;
+      if(jump_time > 2.0 * Math.PI / 9.8){
         jump.jumping = false;
-      }else{
-        plus_y = Math.PI * now_time - 0.5 * gravity * now_time * now_time;
+      }else{       
+        plus_y = Math.PI * jump_time - 0.5 * gravity * jump_time * jump_time;
       }
     }
     coor.v_x = 0; coor.v_z = 0;
     if(press.up){
       coor.v_z -= moveScale.move * Math.cos(coor.deg);
-      coor.v_x += moveScale.move * Math.sin(coor.deg);
+      coor.v_x += moveScale.move * Math.sin(coor.deg);  
     }
     if(press.down){
       coor.v_z += moveScale.move * Math.cos(coor.deg);
@@ -177,7 +225,7 @@ function animate() {
     }
     if(press.right){
       coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-      coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;
+      coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;    
     }
     //console.log(delta_time, coor.v_x, coor.v_z);
     var prev_x = coor.x, prev_z = coor.z;
@@ -207,12 +255,25 @@ function animate() {
     var yy = (((y_val + real_y * 9) / 10) + plus_y) + 100 * Math.sin(coor.ydeg);
     var zz = coor.z - 100 * Math.cos(coor.deg);
     camera.lookAt(new THREE.Vector3(xx, yy, zz));
-    Sphere.position.x = (camera.position.x * 99 + xx) / 100;
-    Sphere.position.y = (camera.position.y * 99 + yy) / 100;
-    Sphere.position.z = (camera.position.z * 99 + zz) / 100;
-    if(moving.doing && save_view.length < max_frame){
-      save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz});
+    if(android[0]){
+      android[0].position.x = (camera.position.x * 99 + xx) / 100;
+      android[0].position.y = camera.position.y - 1; //(camera.position.y * 99 + yy) / 100;
+      android[0].position.z = (camera.position.z * 99 + zz) / 100;
+      android[0].rotation.y = Math.PI-coor.deg;
+      for(var i=0;i<20;i++){
+        android[0].morphTargetInfluences[i] = 0;
+      }
+      android[0].morphTargetInfluences[(coor.frame % 20)] = 1;
+      //android.morphTargetInfluences[((coor.frame/3) % 20)] = 1 - (coor.frame%3);
+      //android.morphTargetInfluences[(((coor.frame/3)+1) % 20)] = (coor.frame%3);
     }
+    ambientLight.position.x = xx;
+    ambientLight.position.y = camera.position.y;
+    ambientLight.position.z = zz;
+    if(moving.doing && save_view.length < max_frame){
+      save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
+    }
+    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20)});
     if(moving.doing) document.body.style.cursor = "none";
     else document.body.style.cursor = "default";
     if(moving.doing){
@@ -319,7 +380,7 @@ function onKeyDown(e){
     }
     // Down
     if(e.keyCode == 40 || e.keyCode == 83){
-      if(!(press.down)){
+      if(!(press.down)){  
         press.down = true;
       }
     }
@@ -394,6 +455,7 @@ function initSpectator() {
 }
 
 function handleNetwork(socket) {
+  mySocket = socket;
   console.log('game.handleNetwork started');
   console.log('socket: ', socket);
   // This is where you receive all socket messages
@@ -402,6 +464,7 @@ function handleNetwork(socket) {
 
   socket.on('serverAcceptsPlayer', function(_maze, _player) {
     maze = _maze;
+    who_am_i = _player;
     initGame();
   });
 
@@ -410,17 +473,18 @@ function handleNetwork(socket) {
   });
 
   socket.on('serverSendsUpdates', function(players) {
-
+    other_players = players;
   });
 
   socket.on('serverStartsNewRound', function(maze) {
     maze = _maze;
-    initGame();
+    restartGame();
   });
 
 
 }
 
+/*
 //불필요?
 function handleLogic() {
   console.log('Game is running');
@@ -430,8 +494,11 @@ function handleLogic() {
 function handleGraphics() {
 
 }
+*/
 
 
 module.exports.handleNetwork = handleNetwork;
+/*
 module.exports.handleLogic = handleLogic;
 module.exports.handleGraphics = handleGraphics;
+*/

@@ -53,6 +53,7 @@ function startGame(type) {
   global.playerType = type;
   document.getElementById('gameAreaWrapper').style.display = 'block';
   document.getElementById('startMenuWrapper').style.display = 'none';
+  document.getElementById('myCanvas').style.display = 'block';
 
   socket = io();
   game.handleNetwork(socket);
