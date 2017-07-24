@@ -134,38 +134,34 @@
 				httpRequest.send(JSON.stringify({map: maze}));
 				
 			}
+			function init() {
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 1, 10000 );
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				renderer.setClearColor( 0x000000, 1 )
+				document.body.appendChild(renderer.domElement);
+				controls = new THREE.OrbitControls( camera, renderer.domElement);
+				controls.addEventListener( 'change', render );
+
+				controls.enableZoom = false;
+
+			}
+
+			init();
 			
 			function showMaze() {
 				// make maze by input row and col
-				//console.log(typeof( document.getElementById("Row").value ));
+
 				
-				function init() {
+				function constructMaze() {
 
-					scene = new THREE.Scene();
-					camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 1, 10000 );
-
-					renderer = new THREE.WebGLRenderer();
-					renderer.setSize(window.innerWidth, window.innerHeight);
-					renderer.setClearColor( 0x000000, 1 )
-					document.body.appendChild(renderer.domElement);
-
-					controls = new THREE.OrbitControls( camera, renderer.domElement);
-					controls.addEventListener( 'change', render );// remove when using animation loop
-					// enable animation loop when using damping or autorotation
-					//controls.enableDamping = true;
-					//controls.dampingFactor = 0.25;
-					controls.enableZoom = false;
-		
-					//var geometry = new THREE.PlaneGeometry( 110, 110, 5 );
-					//var material = new THREE.MeshBasicMaterial( {color: 0x000000, side: THREE.DoubleSide} );
-					//var plane = new THREE.Mesh( geometry, material );
-					//scene.add(plane);
-					//plane.position.set( 0, 0, 0 );
 					
 					var geometry = new THREE.BoxGeometry( 10, 10, 10 );
 					var material = new THREE.MeshBasicMaterial({color: 0xfffff});
 
-					/*
+
+					/* example maze
 					var maze = [ [ 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1 ], 
 								 [ 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1 ], 
 								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
@@ -178,6 +174,7 @@
 								 [ 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ],
 								 [ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]];
 					*/
+					
 					maze = generateMaze(makeMaze( document.getElementById("Row").value*1 , document.getElementById("Col").value*1 ));
 
 					// Generate maze
@@ -187,13 +184,11 @@
 							if ( maze[row][col] == 1 ) {
 								cube = new THREE.Mesh(geometry, material);
 								scene.add(cube);
-								cube.position.set( col * 10 - 50 , row * 10 - 50 , 5 );
+								cube.position.set( col * 10 - maze[0].length * 5 , row * 10 - maze.length * 5 , 5 );
 							}
 						}
 					}
-
-					camera.position.z = document.getElementById("Row").value*1*25;
-
+					camera.position.z = ((maze.length+maze[0].length)/2)*1*15;
 				}
 
 				function render() {
@@ -203,7 +198,7 @@
 					renderer.render(scene, camera);
 				};
 
-				init();
+				constructMaze();
 				render();
 
 			}
