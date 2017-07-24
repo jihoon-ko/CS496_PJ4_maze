@@ -18,7 +18,8 @@ function getAllUsers() {
 }
 var sockets = {};
 
-var maze = [[1,1,1,1,1],[1,2,1,1,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,0],[1,1,1,1,1]];
+
+var maze = util.getNewMaze(6,6);
 
 io.on('connection', function (socket) {
   console.log("Somebody connected!");
@@ -27,6 +28,7 @@ io.on('connection', function (socket) {
   var currentUser = {
     id: socket.id
   };
+
   socket.on('userRequiresGame', function (userName, userType) {
     currentUser.name = userName;
     currentUser.type = userType;
@@ -46,51 +48,57 @@ io.on('connection', function (socket) {
   });
 
   socket.on('playerSendsUpdates', function (data) {
-
+    currentUser.time = data.time;
+    currentUser.x = data.x;
+    currentUser.y = data.y;
+    currentUser.z = data.z;
+    currentUser.cx = data.cx;
+    currentUser.cy = data.cy;
+    currentUser.cz = data.cz;
+    currentUser.state = data.state;
   });
 
-  socket.on('spectatorSendsUpdates', function (data) {
-
+  socket.on('playerWins', function (potg) {
+    getAllUsers.forEach(function(user) {
+      user.result = (user.id === currentUser.id);
+    });
+    roundFinished(potg);
+    //potg 업로드 할 것
   });
 
 
 });
 
-function gameLoop() {
-  //handle game server logic
-}
-
 function sendUpdates () {
   //send updates to other users
   var users = getAllUsers();
   users.forEach(function (user) {
-    sockets[user.id].emit('serverSendsUpdates', players); //needs filtering
+    sockets[user.id].emit(
+      'serverSendsUpdates',
+      players.filter(function(p) { return user.id !== p.id; }));
   });
 }
 
-function roundFinished() {
+function roundFinished(potg) {
   var users = getAllUsers();
-  var potg;
   users.forEach(function (user) {
-    sockets[user.id].emit('roundFinished', potg);
+    sockets[user.id].emit('roundFinished', potg, user.result);
   });
+  //potg 영상 재생 끝나는 시간 측정해서 대기한 후에: TODO
+  startNewRound();
 }
 
 
 function startNewRound() {
   var users = getAllUsers();
-  generateMaze();
+  maze = util.getNewMaze(6,6);
   users.forEach(function (user) {
     sockets[user.id].emit('serverStartsNewRound', maze);
   });
 
 }
 
-function generateMaze() {
-
-}
-
-setInterval(gameLoop, 1000 / 60);
+//setInterval(gameLoop, 1000 / 60);
 setInterval(sendUpdates, 1000 / cfg.networkUpdateFactor);
 
 var serverPort = process.env.PORT || cfg.port;
