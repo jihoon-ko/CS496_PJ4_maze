@@ -15,7 +15,9 @@ canvas {
 	margin: 0; padding: 0;
         position: absolute;
 }
-
+canvas#plane{
+	z-index: 10;
+}
 #startMenu {
 	margin:auto;
 	margin-top:100px;

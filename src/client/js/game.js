@@ -45,10 +45,15 @@ var who_am_i;
 var other_players;
 var mySocket;
 
+var AndroidGeometry, AndroidMaterial;
+var android;
+var ambientLight;
+
 document.body.appendChild( renderer.domElement );
 window.addEventListener( 'resize', onWindowResize, false );
 
 function restartGame(){
+  initModel();
   initValue();
   initMap();
   initObject();
@@ -61,10 +66,32 @@ function initGame(){
   window.addEventListener( 'keydown', onKeyDown, true);
   window.addEventListener( 'mousemove', onMouseMove, true);
   window.addEventListener( 'mousedown', onMouseDown, true);
+  initModel();
   initValue();
   initMap();
   initObject();
   animate();
+}
+
+function initModel(){
+  var jsonLoader = new THREE.JSONLoader();
+  jsonLoader.load("/js/android-animations.js", addModelToScene); 
+}
+function addModelToScene(geometry, materials){
+  for(var i=0;i<materials.length;i++){
+    materials[i].morphTargets = true;
+  }
+  AndroidGeometry = geometry;
+  AndroidMaterial = new THREE.MeshFaceMaterial(materials);
+  android = new Array(20);
+  for(var i=0;i<20;i++){
+    android[i] = new THREE.Mesh(AndroidGeometry, AndroidMaterial);
+    android[i].scale.set(0.1, 0.1, 0.1);
+    android[i].position.set(0,-1000,0);
+    scene.add(android[i]);
+  }
+  ambientLight = new THREE.AmbientLight(0xffffff);
+  scene.add(ambientLight);
 }
 function initValue(){
   coor = {x: 0, y: y_val, z: 0, deg: -Math.PI, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
@@ -74,6 +101,8 @@ function initValue(){
   jump = {jumping: false, time: 0};
   prev_time = new Date().getTime();
 }
+
+
 /*
 function initMap(){
   try{
@@ -226,9 +255,21 @@ function animate(){
     var yy = (((y_val + real_y * 9) / 10) + plus_y) + 100 * Math.sin(coor.ydeg);
     var zz = coor.z - 100 * Math.cos(coor.deg);
     camera.lookAt(new THREE.Vector3(xx, yy, zz));
-    Sphere.position.x = (camera.position.x * 99 + xx) / 100;
-    Sphere.position.y = (camera.position.y * 99 + yy) / 100;
-    Sphere.position.z = (camera.position.z * 99 + zz) / 100;
+    if(android){
+      android.position.x = (camera.position.x * 99 + xx) / 100;
+      android.position.y = camera.position.y - 1; //(camera.position.y * 99 + yy) / 100;
+      android.position.z = (camera.position.z * 99 + zz) / 100;
+      android.rotation.y = Math.PI-coor.deg;
+      for(var i=0;i<20;i++){
+        android.morphTargetInfluences[i] = 0;
+      }
+      android.morphTargetInfluences[(coor.frame % 20)] = 1;
+      //android.morphTargetInfluences[((coor.frame/3) % 20)] = 1 - (coor.frame%3);
+      //android.morphTargetInfluences[(((coor.frame/3)+1) % 20)] = (coor.frame%3);
+    }
+    ambientLight.position.x = xx;
+    ambientLight.position.y = camera.position.y;
+    ambientLight.position.z = zz;
     if(moving.doing && save_view.length < max_frame){
       save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
     }
