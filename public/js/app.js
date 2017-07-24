@@ -23,7 +23,7 @@ window.onload = function() {
   };
 
   btnVR.onclick = function () {
-
+    location.href = "/vr";
   };
 
   playerNameInput.addEventListener('keypress', function (e) {

@@ -268,7 +268,7 @@ function animate(){
           android[i].position.y = other_players[i].y - 1;
           android[i].position.z = other_players[i].z;
           var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
-          android[i].rotation.y = -xdeg;
+          android[i].rotation.y = xdeg;
           for(var j=0;j<20;j++){
             android[i].morphTargetInfluences[j] = 0;
           }

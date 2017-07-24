@@ -1,0 +1,184 @@
+<html>
+	<head>
+		<title>My first three.js app</title>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="../js/three.min.js"></script>
+		<script src="../js/webvr.js"></script>
+		<script>
+			var loader = new THREE.TextureLoader();
+			var texture = loader.load( "../assets/UV_Grid_Sm.jpg" );
+			texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+			texture.repeat.set( 0.008, 0.008 );
+			
+			WEBVR.checkAvailability().catch( function( message ) {
+				document.body.appendChild( WEBVR.getMessageContainer( message ) );
+			} );
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 101, window.innerWidth/window.innerHeight, 0.001, 100 );
+
+			//var cvs = document.getElementById('myCanvas');
+			var renderer = new THREE.WebGLRenderer(/*{canvas: cvs}*/);
+			//renderer.domElement.id = 'myCanvas';
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.setClearColor(0xaaccff);
+			
+			document.body.appendChild( renderer.domElement );
+
+			renderer.vr.enabled = true;
+			WEBVR.getVRDisplay( function ( display ) {
+				renderer.vr.setDevice( display );
+				document.body.appendChild( WEBVR.getButton( display, renderer.domElement ) );
+			} );
+			window.addEventListener( 'resize', onWindowResize, false );
+
+			var httpRequest;
+			var downloaded = 0;
+			var map = <%= mp %>
+			var record = <%- rec %>
+			var wall;
+			var frame = 0;
+			var frame_size = 0;
+			var row; var col;
+			var Bottom;
+			var considered = false;
+			var sq;
+			var msq;
+			var sgroup;
+
+			initShape();
+			function initShape(){
+				//console.log(map);
+				//console.log(record);
+				wall = new Array(map.length);
+				row = map.length;
+				col = map[0].length;
+				for(var i=0;i<row;i++){
+					wall[i] = new Array(col);
+					for(var j=0;j<col;j++){
+						if(map[i][j] == 1){
+							var wall_geometry = new THREE.BoxGeometry( 5, 5, 5 );
+							var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
+							wall[i][j] = new THREE.Mesh(wall_geometry, material);
+							wall[i][j].position.set(j * 5, 2.5, i * 5);
+							scene.add(wall[i][j]); 
+						}
+					}
+				}
+				var drawBottom = function(){
+					var sqPts = [];
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, -row * 5));
+					sqPts.push(new THREE.Vector2(col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, row * 5));
+					sqPts.push(new THREE.Vector2(-col * 5, -row * 5));
+					var square = new THREE.Shape(sqPts);
+					Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
+					Bottom.position.set(0, 0, 0);
+					Bottom.rotation.x = -Math.PI/2;
+					scene.add(Bottom);
+
+					var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
+					var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
+					Sphere = new THREE.Mesh( geometry, material );
+					//scene.add( Sphere );
+				}
+				drawBottom();
+				var sqPt = [];
+				sqPt.push(new THREE.Vector2(-0.44, -0.44));
+				sqPt.push(new THREE.Vector2( 0.44, -0.44));
+				sqPt.push(new THREE.Vector2( 0.44,  0.44));
+				sqPt.push(new THREE.Vector2(-0.44,  0.44));
+				sqPt.push(new THREE.Vector2(-0.44, -0.44));
+				
+				var msqPt = [];
+				msqPt.push(new THREE.Vector2(-0.033, -0.033));
+				msqPt.push(new THREE.Vector2( 0.033, -0.033));
+				msqPt.push(new THREE.Vector2( 0.033,  0.033));
+				msqPt.push(new THREE.Vector2(-0.033,  0.033));
+				msqPt.push(new THREE.Vector2(-0.033, -0.033));
+				sgroup = new THREE.Group();
+				var sqr = new THREE.Shape(sqPt);
+				sq = new THREE.Mesh(new THREE.ShapeBufferGeometry(sqr), new THREE.MeshBasicMaterial( {color: 0x777777, opacity: 0.5, transparent: true} ));
+				
+				var msqr = new THREE.Shape(msqPt);
+				
+				sq.position.set(0,0,-1);
+				sgroup.add(sq);
+				
+				msq = new Array(11);
+				for(var i=0;i<11;i++){
+					msq[i] = new Array(11);
+					for(var j=0;j<11;j++){
+						//if((i+j)%2==0) continue;
+						msq[i][j] = new THREE.Mesh(new THREE.ShapeBufferGeometry(msqr), new THREE.MeshBasicMaterial({color: 0xffffff, opacity: 0.5, transparent: true}));
+						msq[i][j].position.set((j-5) * 0.075, (i-5) * 0.075, -0.99); 
+						sgroup.add(msq[i][j]);
+					}
+				}
+				scene.add(sgroup);
+				
+				frame_size = record.length;
+				animate();
+			}
+			function animate () {
+				var width = window.innerWidth; var height = window.innerHeight;
+				if(frame >= frame_size) frame = frame_size-1;
+				var xdeg = Math.atan2(record[frame].cx - record[frame].x, record[frame].cz - record[frame].z);
+				requestAnimationFrame( animate );
+				var rr = Math.floor((record[frame].z / 5) + 0.5);
+				var cc = Math.floor((record[frame].x / 5) + 0.5);			
+				for(var i=0;i<row;i++){
+					for(var j=0;j<col;j++){
+						if(map[i][j] == 1){
+							var xx = -(j * 5 - record[frame].x);
+							var zz = -(i * 5 - record[frame].z);
+							wall[i][j].position.set(xx * Math.cos(xdeg) - zz * Math.sin(xdeg), 1.5 - record[frame].y, xx * Math.sin(xdeg) + zz * Math.cos(xdeg)); 
+							wall[i][j].rotation.y = -xdeg;
+						}
+					}
+				}
+				var bxx = record[frame].x;
+				var bzz = record[frame].z;
+				Bottom.position.set(bxx * Math.cos(xdeg) - bzz * Math.sin(xdeg), -1-record[frame].y, bxx * Math.sin(xdeg) + bzz * Math.cos(xdeg));
+				Bottom.rotation.z = -xdeg;
+				Sphere.position.set(0, (record[frame].cy - record[frame].y - 1) / 100.0, -1);
+				camera.lookAt(new THREE.Vector3(0,record[frame].cy - record[frame].y - 1, -100));
+				frame++;
+				sgroup.traverse(function(object){object.visible = true;});
+				if(frame >= frame_size || !(record[frame].map)) sgroup.traverse(function(object){object.visible = false;});
+				else{
+					for(var i=-5;i<=5;i++){
+						for(var j=-5;j<=5;j++){
+							msq[i+5][j+5].visible = true;
+							if(i + rr < 0 || i + rr >= row || j + cc < 0 || j + cc >= col){
+								msq[i+5][j+5].material.color.setHex(0x777777);
+								msq[i+5][j+5].visible = false;
+							}else if(map[i+rr][j+cc] == 1){
+								msq[i+5][j+5].material.color.setHex(0x000000);
+							}else if(i == 0 && j == 0){
+								msq[5][5].material.color.setHex(0xffff00);
+							}else{
+								msq[i+5][j+5].material.color.setHex(0xffffff);
+							}
+						}
+					}
+					
+				}
+				renderer.render(scene, camera);
+			};
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			init();
+		</script>
+	</body>
+</html>
