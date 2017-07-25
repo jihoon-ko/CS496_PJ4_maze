@@ -33,7 +33,7 @@ function getAllUsers() {
 var sockets = {};
 
 function loadMaze(){
-  return util.getNewMaze(3,3);
+  return util.getNewMaze(6,6);
 }
 
 var maze = loadMaze();
@@ -73,6 +73,7 @@ io.on('connection', function (socket) {
     currentUser.cx = data.cx;
     currentUser.cy = data.cy;
     currentUser.cz = data.cz;
+    currentUser.map = data.map;
     currentUser.state = data.state;
   });
 
