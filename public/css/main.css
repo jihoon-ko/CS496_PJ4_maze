@@ -5,8 +5,8 @@
 }
 
 @font-face {
-	font-family: 'Koverwatch',
-        src: url(../assets/koverwatch.ttf) format('truetype');
+	font-family: Koverwatch,
+        src: url(/assets/koverwatch.ttf) format('truetype');
 }
 
 html, body {

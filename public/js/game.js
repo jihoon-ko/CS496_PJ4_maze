@@ -28,7 +28,6 @@ var prev_time;
 //about game
 var save_view = [];
 var max_frame = 30000;
-var finished = false;
 var ctx, planeCanvas;
 var show_minimap = false;
 
@@ -49,29 +48,35 @@ document.body.appendChild( renderer.domElement );
 window.addEventListener( 'resize', onWindowResize, false );
 
 var fontLoader = new THREE.FontLoader();
-var fontGeometry;
-var name3d[20];
+var font_loaded = false;
+var font_res;
+//var fontGeometry;
+var name3d;
+var game_first = false;
+var gameState = 0;
+var game_result = 0;
+var fontMaterials = [new THREE.MeshBasicMaterial({color: 0x000000}),
+                     new THREE.MeshBasicMaterial({color: 0x000000})];
 
 fontLoader.load('/assets/koverwatch.json', function(font){
-  fontGeometry = new THREE.TextGeometry( '', {
-    font: font,
-    size: 4,
-    height: 5,
-    curveSegments: 20,
-    bevelEnabled: false,
-    bevelThickness: 0.1,
-    bevelSize: 0.1,
-    bevelSegments: 1
-  });
-  var fontMaterial = new THREE.MeshBasicMaterial({color: 0x000000});
-  for(var i=0;i<20;i++){
-    name3d[i] = new THREE.Mesh(fontGeometry, fontMaterial);
-    scene.add(name3d[i]);
-  }
+  console.log("loaded");
+  font_loaded = true;
+  font_res = font;
 });
 function restartGame(){
-  initModel();
+  while(scene.children.length > 0){
+    scene.remove(scene.children[0]);
+  }
+  /*
+  name3d = new Array(20);
+  for(var i=0;i<20;i++){
+    name3d[i] = new THREE.Mesh(fontGeometry, fontMaterials);
+    name3d[i].position.set(0, -1000, 0);
+    scene.add(name3d[i]);
+  }
+  */
   initValue();
+  addModel();
   initMap();
   initObject();
 }
@@ -90,16 +95,18 @@ function initGame(){
   animate();
 }
 
+function stopGame(){
+  gameState = 1;
+  press.left = false; press.right = false; press.up = false; press.down = false;
+  moving.doing = false;
+}
+
 function initModel(){
   var jsonLoader = new THREE.JSONLoader();
   jsonLoader.load("/js/android-animations.js", addModelToScene); 
 }
-function addModelToScene(geometry, materials){
-  for(var i=0;i<materials.length;i++){
-    materials[i].morphTargets = true;
-  }
-  AndroidGeometry = geometry;
-  AndroidMaterial = new THREE.MeshFaceMaterial(materials);
+
+function addModel(){
   android = new Array(20);
   for(var j=0;j<20;j++){
     android[j] = new THREE.Mesh(AndroidGeometry, AndroidMaterial);
@@ -110,6 +117,15 @@ function addModelToScene(geometry, materials){
   ambientLight = new THREE.AmbientLight(0xffffff);
   scene.add(ambientLight);
 }
+
+function addModelToScene(geometry, materials){
+  for(var i=0;i<materials.length;i++){
+    materials[i].morphTargets = true;
+  }
+  AndroidGeometry = geometry;
+  AndroidMaterial = new THREE.MeshFaceMaterial(materials);
+  addModel();
+}
 function initValue(){
   coor = {x: 0, y: y_val, z: 0, deg: -Math.PI, ydeg: 0, frame: 0, v_x: 0, v_z: 0};
   moving = {doing: false, ori_x: 0, ori_y: 0, ori_deg: 0};
@@ -117,6 +133,8 @@ function initValue(){
   cursor_now = {x: 0, y: 0};
   jump = {jumping: false, time: 0};
   prev_time = new Date().getTime();
+  gameState = 0;
+  game_result = 0;
 }
 
 
@@ -160,9 +178,6 @@ function initMap(){
 }
 
 function initObject(){
-  while(scene.children.length > 0){
-    scene.remove(scene.children[0]);
-  }
   var loadTexture = function(){
     var loader = new THREE.TextureLoader();
     texture = loader.load( "assets/UV_Grid_Sm.jpg" );
@@ -255,21 +270,19 @@ function animate(){
     coor.x += delta_time * coor.v_x; coor.z += delta_time * coor.v_z;
     var rr = Math.floor((coor.z / block_size) + 0.5);
     var cc = Math.floor((coor.x / block_size) + 0.5);
-    //console.log(rr,cc, maze[rr][cc]);
     if(maze[rr][cc] == 1){
       coor.x = prev_x * 1.03 - coor.x * 0.03; coor.z = prev_z * 1.03 - coor.z * 0.03;
     }
     if(moving.doing && maze[rr][cc] === undefined){
-      finished = true;
       console.log("SUCCESS!!!!");
-      press.left = false; press.right = false; press.up = false; press.down = false;
-      moving.doing = false;
       console.log(save_view);
+      stopGame();
       httpRequest = new XMLHttpRequest();
       httpRequest.onreadystatechange = alertContents;
       httpRequest.open('POST', server_url + '/upload');
       httpRequest.setRequestHeader("Content-type", "application/json");
       httpRequest.send(JSON.stringify({map: maze, record: save_view}));
+      mySocket.emit('playerWins', save_view);
     }
     //press.up = false; press.down = false; press.left = false; press.right = false;
     var real_y = (y_val - 0.1) + 0.1 * Math.cos(coor.frame / 6.0);
@@ -295,6 +308,47 @@ function animate(){
           }
           android[i].morphTargetInfluences[other_players[i].state] = 1;
         }
+      }
+      /*
+      if(name3d && name3d[i]){
+        if(other_players.length <= i) name3d[i].position.set(0, -1000, 0);
+        else{
+          name3d[i].position.set(other_players[i].x, other_players[i].y + 0.3, other_players[i].z);
+         var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
+          name3d[i].rotation.y = xdeg;
+          name3d[i].text = other_players[i].name;
+        }
+      }
+      */
+    }
+    if(font_loaded){
+      //console.log(other_players);
+      if(name3d){
+        for(var j=0;j<name3d.length;j++){
+          scene.remove(name3d[j]);  
+        }
+      }
+      name3d = new Array(other_players.length);
+
+      for(var j=0;j<other_players.length;j++){
+        var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
+          font: font_res,
+          size: 0.2,
+          height: 0.01,
+          curveSegments: 20,
+          bevelEnabled: false,
+          bevelThickness: 0.1,
+          bevelSize: 0.1,
+          bevelSegments: 1
+        });
+        fontGeometry.computeBoundingBox();
+        fontGeometry.computeVertexNormals();
+        var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+        var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
+        name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
+        name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
+        name3d[j].rotation.y = xdeg;
+        scene.add(name3d[j]);
       }
     }
     if(ambientLight){
@@ -339,12 +393,24 @@ function animate(){
     ctx.moveTo(width/2, height/2 + 10);
     ctx.lineTo(width/2, height/2 + 2);
     ctx.stroke();
-    if(finished){
-      ctx.fillStyle = '#777777';
-      ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
-      ctx.font="30px Arial";
+    if(gameState > 0){
+      ctx.globalAlpha = 1;
+      //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
+      ctx.font="italic 100px Koverwatch";
       ctx.textAlign = "center";
-      ctx.fillText("Congraturations!", width/2, height/2 + 10);
+      var resultText = function(){
+        if(game_result > 0){
+          ctx.fillStyle = '#FAA02E';
+          return "승리!";
+        }else if(game_result < 0){
+          ctx.fillStyle = '#FA052E';
+          return "패배";
+        }else{
+          ctx.fillStyle = '#FFFFFF';
+          return "게임 종료";
+        }
+      }
+      ctx.fillText(resultText(), width/2, height/2 + 10);
     }else{
       if(!moving.doing || show_minimap){
         ctx.fillStyle = '#777777';
@@ -393,7 +459,7 @@ function onMouseMove(e){
   }
 }
 function onMouseDown(e){
-  if(!moving.doing && !finished){
+  if(!moving.doing && gameState == 0){
     moving.doing = true;
     var width = window.innerWidth; var height = window.innerHeight;
     moving.ori_x = 0.5 * width;//e.clientX;
@@ -503,9 +569,9 @@ function handleNetwork(socket) {
   });
   socket.on('serverSendsUpdates', function(players) {
     other_players = players;
-    console.log(players);
+    //console.log(players);
   });
-  socket.on('serverStartsNewRound', function(maze) {
+  socket.on('serverStartsNewRound', function(_maze) {
     maze = _maze;
     restartGame();
   });
@@ -518,6 +584,12 @@ function handleNetwork(socket) {
   });
   socket.on('disconnected', function(){
     console.log("!!!");
+  });
+  socket.on('roundFinished', function(potg, result){
+    console.log(result);
+    if(result) game_result = 1;
+    else game_result = -1;
+    stopGame();
   });
 
   console.log("end of handleNetwork");

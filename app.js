@@ -32,7 +32,11 @@ function getAllUsers() {
 }
 var sockets = {};
 
-var maze = util.getNewMaze(6,6);
+function loadMaze(){
+  return util.getNewMaze(3,3);
+}
+
+var maze = loadMaze();
 
 io.on('connection', function (socket) {
   console.log("Somebody connected!", socket.id);
@@ -73,7 +77,8 @@ io.on('connection', function (socket) {
   });
 
   socket.on('playerWins', function (potg) {
-    getAllUsers.forEach(function(user) {
+    var users = getAllUsers();
+    users.forEach(function(user) {
       user.result = (user.id === currentUser.id);
     });
     roundFinished(potg);
@@ -121,14 +126,13 @@ function roundFinished(potg) {
   users.forEach(function (user) {
     sockets[user.id].emit('roundFinished', potg, user.result);
   });
-  //potg 영상 재생 끝나는 시간 측정해서 대기한 후에: TODO
-  startNewRound();
+  setTimeout(function(){ console.log("sigongzoa"); startNewRound(); }, 5000);//potg 영상 재생 끝나는 시간 측정해서 대기한 후에: TODO
 }
 
 
 function startNewRound() {
   var users = getAllUsers();
-  maze = util.getNewMaze(6,6);
+  maze = loadMaze();
   users.forEach(function (user) {
     sockets[user.id].emit('serverStartsNewRound', maze);
   });
