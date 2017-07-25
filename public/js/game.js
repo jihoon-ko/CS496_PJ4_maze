@@ -58,6 +58,8 @@ var game_result = 0;
 var fontMaterials = [new THREE.MeshBasicMaterial({color: 0x000000}),
                      new THREE.MeshBasicMaterial({color: 0x000000})];
 
+var potg_start, game_winner;
+var game_potg;
 fontLoader.load('/assets/koverwatch.json', function(font){
   console.log("loaded");
   font_loaded = true;
@@ -135,6 +137,7 @@ function initValue(){
   prev_time = new Date().getTime();
   gameState = 0;
   game_result = 0;
+  save_view = [];
 }
 
 
@@ -223,6 +226,12 @@ function initObject(){
 function alertContents(){
   console.log(httpRequest.status);
 }
+
+function getFrame(frame_number){
+  if(game_potg.length <= frame_number) return game_potg[game_potg.length-1];
+  else return game_potg[frame_number];
+}
+
 function animate(){
   //console.log(mySocket);
   // mySocket.emit('test', (function () {
@@ -233,93 +242,116 @@ function animate(){
   var width = window.innerWidth; var height = window.innerHeight;
   var movingTask = function(){
     requestAnimationFrame( animate );
-    camera.position.x = coor.x;
-    camera.position.z = coor.z;
-    var plus_y = 0;
-    var now_time = new Date().getTime();
-    var delta_time = (now_time - prev_time) / 1000.0;
-    prev_time = now_time;
-    if(press.up || press.down || press.left || press.right) coor.frame += 1;
-    if(jump.jumping){
-      var jump_time = (now_time - jump.time) / 1000.0;
-      if(jump_time > 2.0 * Math.PI / 9.8){
-        jump.jumping = false;
-      }else{       
-        plus_y = Math.PI * jump_time - 0.5 * gravity * jump_time * jump_time;
+    if(gameState == 2){
+      var now_time = new Date().getTime();
+      var delta = now_time - potg_start;
+      //console.log(delta);
+      var interpolate = (delta * 60) % 1000;
+      var now_frm = ((delta * 60) - interpolate) / 1000;
+      var nowFrame = getFrame(now_frm);
+      var nextFrame = getFrame(now_frm+1);
+      camera.position.x = (nowFrame.x * (1000 - interpolate) + nextFrame.x * interpolate) / 1000;
+      camera.position.y = (nowFrame.y * (1000 - interpolate) + nextFrame.y * interpolate) / 1000;
+      camera.position.z = (nowFrame.z * (1000 - interpolate) + nextFrame.z * interpolate) / 1000;
+      var ccx = (nowFrame.cx * (1000 - interpolate) + nextFrame.cx * interpolate) / 1000;
+      var ccy = (nowFrame.cy * (1000 - interpolate) + nextFrame.cy * interpolate) / 1000;
+      var ccz = (nowFrame.cz * (1000 - interpolate) + nextFrame.cz * interpolate) / 1000;
+      camera.lookAt(new THREE.Vector3(ccx, ccy, ccz));
+      if(ambientLight){
+        ambientLight.position.x = camera.position.x;
+        ambientLight.position.y = camera.position.y;
+        ambientLight.position.z = camera.position.z;
       }
-    }
-    coor.v_x = 0; coor.v_z = 0;
-    if(press.up){
-      coor.v_z -= moveScale.move * Math.cos(coor.deg);
-      coor.v_x += moveScale.move * Math.sin(coor.deg);
-    }
-    if(press.down){
-      coor.v_z += moveScale.move * Math.cos(coor.deg);
-      coor.v_x -= moveScale.move * Math.sin(coor.deg);
-    }
-    if(press.left){
-      coor.v_x -= moveScale.move * Math.cos(coor.deg) / 2;
-      coor.v_z -= moveScale.move * Math.sin(coor.deg) / 2;
-    }
-    if(press.right){
-      coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-      coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;    
-    }
-    //console.log(delta_time, coor.v_x, coor.v_z);
-    var prev_x = coor.x, prev_z = coor.z;
-    coor.x += delta_time * coor.v_x; coor.z += delta_time * coor.v_z;
-    var rr = Math.floor((coor.z / block_size) + 0.5);
-    var cc = Math.floor((coor.x / block_size) + 0.5);
-    if(maze[rr][cc] == 1){
-      coor.x = prev_x * 1.03 - coor.x * 0.03; coor.z = prev_z * 1.03 - coor.z * 0.03;
-    }
-    if(moving.doing && maze[rr][cc] === undefined){
-      console.log("SUCCESS!!!!");
-      console.log(save_view);
-      stopGame();
-      httpRequest = new XMLHttpRequest();
-      httpRequest.onreadystatechange = alertContents;
-      httpRequest.open('POST', server_url + '/upload');
-      httpRequest.setRequestHeader("Content-type", "application/json");
-      httpRequest.send(JSON.stringify({map: maze, record: save_view}));
-      mySocket.emit('playerWins', save_view);
-    }
-    //press.up = false; press.down = false; press.left = false; press.right = false;
-    var real_y = (y_val - 0.1) + 0.1 * Math.cos(coor.frame / 6.0);
-    camera.position.y = real_y + plus_y;
-    var xx = coor.x + 100 * Math.sin(coor.deg);
-    var yy = (((y_val + real_y * 9) / 10) + plus_y) + 100 * Math.sin(coor.ydeg);
-    var zz = coor.z - 100 * Math.cos(coor.deg);
-    camera.lookAt(new THREE.Vector3(xx, yy, zz));
-    //console.log(other_players.length);
-    
-    for(var i=0;i<20;i++){
-      if(android && android[i]){
-        if(other_players.length <= i){
-          android[i].position.set(0, -1000, 0);
-        }else{
-          android[i].position.x = other_players[i].x;
-          android[i].position.y = other_players[i].y - 1;
-          android[i].position.z = other_players[i].z;
-          var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
-          android[i].rotation.y = xdeg;
-          for(var j=0;j<20;j++){
-            android[i].morphTargetInfluences[j] = 0;
+      console.log(now_frm, interpolate);
+    }else{
+      camera.position.x = coor.x;
+      camera.position.z = coor.z;
+      var plus_y = 0;
+      var now_time = new Date().getTime();
+      var delta_time = (now_time - prev_time) / 1000.0;
+      prev_time = now_time;
+      if(press.up || press.down || press.left || press.right) coor.frame += 1;
+      if(jump.jumping){
+        var jump_time = (now_time - jump.time) / 1000.0;
+        if(jump_time > 2.0 * Math.PI / 9.8){
+          jump.jumping = false;
+        }else{       
+          plus_y = Math.PI * jump_time - 0.5 * gravity * jump_time * jump_time;
+        }
+      }
+      coor.v_x = 0; coor.v_z = 0;
+      if(press.up){
+        coor.v_z -= moveScale.move * Math.cos(coor.deg);
+        coor.v_x += moveScale.move * Math.sin(coor.deg);
+      }
+      if(press.down){
+        coor.v_z += moveScale.move * Math.cos(coor.deg);
+        coor.v_x -= moveScale.move * Math.sin(coor.deg);
+      }
+      if(press.left){
+        coor.v_x -= moveScale.move * Math.cos(coor.deg) / 2;
+        coor.v_z -= moveScale.move * Math.sin(coor.deg) / 2;
+      }
+      if(press.right){
+        coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
+        coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;    
+      }
+      //console.log(delta_time, coor.v_x, coor.v_z);
+      var prev_x = coor.x, prev_z = coor.z;
+      coor.x += delta_time * coor.v_x; coor.z += delta_time * coor.v_z;
+      var rr = Math.floor((coor.z / block_size) + 0.5);
+      var cc = Math.floor((coor.x / block_size) + 0.5);
+      if(maze[rr][cc] == 1){
+        coor.x = prev_x * 1.03 - coor.x * 0.03; coor.z = prev_z * 1.03 - coor.z * 0.03;
+      }
+      if(moving.doing && maze[rr][cc] === undefined){
+        console.log("SUCCESS!!!!");
+        console.log(save_view);
+        stopGame();
+        httpRequest = new XMLHttpRequest();
+        httpRequest.onreadystatechange = alertContents;
+        httpRequest.open('POST', server_url + '/upload');
+        httpRequest.setRequestHeader("Content-type", "application/json");
+        httpRequest.send(JSON.stringify({map: maze, record: save_view}));
+        mySocket.emit('playerWins', save_view);
+      }
+      //press.up = false; press.down = false; press.left = false; press.right = false;
+      var real_y = (y_val - 0.1) + 0.1 * Math.cos(coor.frame / 6.0);
+      camera.position.y = real_y + plus_y;
+      var xx = coor.x + 100 * Math.sin(coor.deg);
+      var yy = (((y_val + real_y * 9) / 10) + plus_y) + 100 * Math.sin(coor.ydeg);
+      var zz = coor.z - 100 * Math.cos(coor.deg);
+      camera.lookAt(new THREE.Vector3(xx, yy, zz));
+      //console.log(other_players.length);
+      
+      for(var i=0;i<20;i++){
+        if(android && android[i]){
+          if(other_players.length <= i){
+            android[i].position.set(0, -1000, 0);
+          }else{
+            android[i].position.x = other_players[i].x;
+            android[i].position.y = other_players[i].y - 1;
+            android[i].position.z = other_players[i].z;
+            var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
+            android[i].rotation.y = xdeg;
+            for(var j=0;j<20;j++){
+              android[i].morphTargetInfluences[j] = 0;
+            }
+            android[i].morphTargetInfluences[other_players[i].state] = 1;
           }
-          android[i].morphTargetInfluences[other_players[i].state] = 1;
         }
-      }
-      /*
-      if(name3d && name3d[i]){
-        if(other_players.length <= i) name3d[i].position.set(0, -1000, 0);
-        else{
-          name3d[i].position.set(other_players[i].x, other_players[i].y + 0.3, other_players[i].z);
-         var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
-          name3d[i].rotation.y = xdeg;
-          name3d[i].text = other_players[i].name;
+        /*
+        if(name3d && name3d[i]){
+          if(other_players.length <= i) name3d[i].position.set(0, -1000, 0);
+          else{
+            name3d[i].position.set(other_players[i].x, other_players[i].y + 0.3, other_players[i].z);
+           var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
+            name3d[i].rotation.y = xdeg;
+            name3d[i].text = other_players[i].name;
+          }
         }
+        */
       }
-      */
     }
     if(font_loaded){
       //console.log(other_players);
@@ -393,10 +425,23 @@ function animate(){
     ctx.moveTo(width/2, height/2 + 10);
     ctx.lineTo(width/2, height/2 + 2);
     ctx.stroke();
-    if(gameState > 0){
+    if(gameState == 2){
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(0, 0, width, 130);
+      ctx.globalAlpha = 1;
+      ctx.font="italic 50px Koverwatch";
+      ctx.fillStyle = '#FAA02E';
+      ctx.textAlign = "left";
+      ctx.fillText("최고의 플레이", 30, 60);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = "left";
+      ctx.fillText(game_winner, 250, 60);
+      ctx.font="italic 20px Koverwatch";
+      ctx.fillText("안드로이드", 30, 90);
+    }else if(gameState == 1){
+      ctx.font="italic 100px Koverwatch";
       ctx.globalAlpha = 1;
       //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
-      ctx.font="italic 100px Koverwatch";
       ctx.textAlign = "center";
       var resultText = function(){
         if(game_result > 0){
@@ -572,6 +617,7 @@ function handleNetwork(socket) {
     //console.log(players);
   });
   socket.on('serverStartsNewRound', function(_maze) {
+    console.log("HELLO");
     maze = _maze;
     restartGame();
   });
@@ -585,11 +631,15 @@ function handleNetwork(socket) {
   socket.on('disconnected', function(){
     console.log("!!!");
   });
-  socket.on('roundFinished', function(potg, result){
+  socket.on('roundFinished', function(potg, result, winner){
     console.log(result);
     if(result) game_result = 1;
     else game_result = -1;
+    game_winner = winner;
+    potg_start = new Date().getTime() + 3000;
+    game_potg = potg;
     stopGame();
+    setTimeout(function(){gameState = 2;}, 3000);
   });
 
   console.log("end of handleNetwork");

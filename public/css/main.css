@@ -1,12 +1,12 @@
-* {
-	font-family: Koverwatch;
-	font-size: 20px;
-	font-style: italic;
+@font-face {
+	font-family: 'Koverwatch';
+    src: url('/assets/koverwatch.ttf') format('truetype');
 }
 
-@font-face {
-	font-family: Koverwatch,
-        src: url(/assets/koverwatch.ttf) format('truetype');
+* {
+	font-family: 'Koverwatch';
+	font-size: 20px;
+	font-style: italic;
 }
 
 html, body {
