@@ -104,7 +104,9 @@ io.on('connection', function (socket) {
 
   socket.on('playerShoots', function (beam) {
     //testBeam(beam);
+    console.log('beam shot',  beam, '\n');
     io.emit('serverBroadcastsBeam', beam);
+
     if(beam.victim) {
       sockets[beam.victim.id].emit('youAreDead', { killer: currentUser });
       sockets[beam.victim.id].broadcast.emit('playerDies', { killer: currentUser, victim: beam.victim });
@@ -164,7 +166,6 @@ function startNewRound() {
 //
 // }
 
-setInterval(gameLoop, 1000 / 60);
 setInterval(sendUpdates, 1000 / 40);
 
 

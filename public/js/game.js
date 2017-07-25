@@ -199,6 +199,7 @@ function initObject(){
     var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
     Bottom.position.set(0, 0, 0);
     Bottom.rotation.x = -Math.PI/2;
+    Bottom.isFloor = true;
     scene.add(Bottom);
     var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
     var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
@@ -215,6 +216,7 @@ function initObject(){
           var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
           wall[i][j] = new THREE.Mesh(wall_geometry, material);
           wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
+          wall[i][j].isWall = true;
           scene.add(wall[i][j]);
         }
       }
@@ -328,8 +330,12 @@ function animate(){
       for(var i=0;i<20;i++){
         if(android && android[i]){
           if(other_players.length <= i){
+            android[i].playerId = undefined;
+            android[i].isPlayer = false;
             android[i].position.set(0, -1000, 0);
           }else{
+            android[i].playerId = other_players[i].id;
+            android[i].isPlayer = true;
             android[i].position.x = other_players[i].x;
             android[i].position.y = other_players[i].y - 1;
             android[i].position.z = other_players[i].z;
@@ -455,7 +461,7 @@ function animate(){
           ctx.fillStyle = '#FFFFFF';
           return "게임 종료";
         }
-      }
+      };
       ctx.fillText(resultText(), width/2, height/2 + 10);
     }else{
       if(!moving.doing || show_minimap){
@@ -594,17 +600,45 @@ function onKeyUp(e){
   }
 }
 
-function initSpectator() {
-
-}
-
 function shootBeam() {
   raycaster.setFromCamera(new THREE.Vector2(), camera);
   var intersects = raycaster.intersectObjects(scene.children);
-  intersects.filter(function(intersect) {
-
+  var intersectingPlayers = intersects.filter(function(intersect) {
+    return intersect.object.isPlayer;
   });
-
+  var validIntersects = intersects.filter(function(intersect) {
+    var obj = intersect.object;
+    return obj.isPlayer || obj.isWall || obj.isFloor;
+  });
+  var victim, endPoint;
+  if(intersectingPlayers.length > 0) {
+    var victimObject = intersectingPlayers[0].object;
+    victim = other_players.find(function(player) {
+      return player.id === victimObject.playerId;
+    });
+  }
+  if(validIntersects.length > 0) {
+    endPoint = validIntersects[0].point;
+  } else {
+    endPoint = camera.getWorldDirection().normalize().multiplyScalar(200).add(new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z));
+  }
+  var beam = {
+    shooter: who_am_i,
+    victim: victim,
+    startPoint: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z
+    },
+    endPoint: {
+      x: endPoint.x,
+      y: endPoint.y,
+      z: endPoint.z
+    }
+  };
+  console.log('intersects', intersects);
+  console.log(beam);
+  mySocket.emit('playerShoots', (function(){return beam;})());
 
 }
 
@@ -635,6 +669,21 @@ function handleNetwork(socket) {
 
   socket.on('serverBroadcastsBeam', function(beam) {
     //drawBeam
+    var beamMaterial = new THREE.LineBasicMaterial( { color: 0xffff55, linewidth: 3 });
+    var lineGeometry = new THREE.Geometry();
+    lineGeometry.vertices.push(
+      new THREE.Vector3(beam.startPoint.x, beam.startPoint.y, beam.startPoint.z)
+    );
+    lineGeometry.vertices.push(
+      new THREE.Vector3(beam.endPoint.x, beam.endPoint.y, beam.endPoint.z)
+    );
+    var beamLine = new THREE.Line(lineGeometry, beamMaterial);
+    beamLine.isLine = true;
+    scene.add(beamLine);
+    setTimeout(function() {
+      scene.remove(beamLine);
+    }, 2000);
+
   });
 
   socket.on('youAreDead', function(data) {
