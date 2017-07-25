@@ -278,13 +278,52 @@ function animate(){
         ambientLight.position.y = camera.position.y;
         ambientLight.position.z = camera.position.z;
       }
+      other_players = nowFrame.otherPeople;
+      console.log(nowFrame);
+      for(var i=0;i<20;i++){
+        if(android && android[i]){
+          if(other_players.length <= i){
+            android[i].position.set(0, -1000, 0);
+          }else{
+            android[i].position.x = other_players[i].x;
+            android[i].position.y = other_players[i].y - 1;
+            android[i].position.z = other_players[i].z;
+            var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
+            android[i].rotation.y = xdeg;
+            for(var j=0;j<20;j++){
+              android[i].morphTargetInfluences[j] = 0;
+            }
+            android[i].morphTargetInfluences[other_players[i].state] = 1;
+          }
+        }
+      }
       if(name3d){
         for(var j=0;j<name3d.length;j++){
           scene.remove(name3d[j]);
         }
       }
-      name3d = [];
-      for(var i=0;i<20;i++) android[i].position.set(0, -1000, 0);
+      name3d = new Array(other_players.length);
+
+      for(var j=0;j<other_players.length;j++){
+        var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
+          font: font_res,
+          size: 0.2,
+          height: 0.01,
+          curveSegments: 20,
+          bevelEnabled: false,
+          bevelThickness: 0.1,
+          bevelSize: 0.1,
+          bevelSegments: 1
+        });
+        fontGeometry.computeBoundingBox();
+        fontGeometry.computeVertexNormals();
+        var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+        var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
+        name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
+        name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
+        name3d[j].rotation.y = xdeg;
+        scene.add(name3d[j]);
+      }
     }else if(playerType === 'spectator'){
       if(spectator_info.target !== undefined){
         spectator_info.idx = -1;
@@ -346,11 +385,11 @@ function animate(){
         fontGeometry.computeBoundingBox();
         fontGeometry.computeVertexNormals();
         var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+        if(spectator_info.idx == j) xdeg += Math.PI;
         var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
         name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
         name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
-        if(spectator_info.idx != j) name3d[j].rotation.y = xdeg;
-        else name3d[j].rotation.y = xdeg + Math.PI;
+        name3d[j].rotation.y = xdeg;
         scene.add(name3d[j]);
       }
     }else{
@@ -482,7 +521,7 @@ function animate(){
         ambientLight.position.z = zz;
       }
       if(moving.doing && save_view.length < max_frame){
-        save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
+        save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap, otherPeople: other_players});
       }
       mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20), map: (!moving.doing || show_minimap)});
       if(moving.doing) document.body.style.cursor = "none";

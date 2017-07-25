@@ -75,6 +75,7 @@ io.on('connection', function (socket) {
     currentUser.cz = data.cz;
     currentUser.map = data.map;
     currentUser.state = data.state;
+    currentUser.otherPeople = data.otherPeople;
   });
 
   socket.on('playerWins', function (potg) {
