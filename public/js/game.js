@@ -64,6 +64,10 @@ var game_starttime;
 var potg_start, game_winner;
 var game_potg;
 
+//게임 시작 후 일정시간동안은 빔을 발사할 수 없음. true일 때 발사가능
+var beamAllowed = false;
+//빔 쿨타임 설정. 발사 후 2초간 발사 금지. true일 때 발사가능
+var beamCoolDown = true;
 
 // Spectator variables
 var spectator_info = {target: undefined, idx: -1, x: 0, z: 0, zoom: 0};
@@ -74,6 +78,8 @@ fontLoader.load('/assets/koverwatch.json', function(font){
   font_res = font;
 });
 function restartGame(){
+  mySocket.emit('playerRequiresRevive');
+
   while(scene.children.length > 0){
     scene.remove(scene.children[0]);
   }
@@ -89,6 +95,11 @@ function restartGame(){
   addModel();
   initMap();
   initObject();
+
+  beamAllowed = false; //10초 후 빔 활성화
+  setTimeout(function() {
+    beamAllowed = true;
+  }, 10000);
 }
 
 function initGame(){
@@ -102,6 +113,12 @@ function initGame(){
   initValue();
   initMap();
   initObject();
+
+  beamAllowed = false; //10초 후 빔 활성화
+  setTimeout(function() {
+    beamAllowed = true;
+  }, 10000);
+
   animate();
 }
 
@@ -176,7 +193,7 @@ function initMap(){
 function initMap(){
   row = maze.length;
   col = maze[0].length;
-  coor.x = (row-2) * block_size;
+  coor.x = block_size;
   coor.z = block_size;
   for(var i=0;i<row;i++){
     for(var j=0;j<col;j++){
@@ -677,7 +694,7 @@ function onMouseDown(e){
       moving.ori_x = 0.5 * width;//e.clientX;
       moving.ori_y = 0.5 * height;
       moving.ori_deg = coor.deg;
-    }else if(moving.doing && gameState == 0){
+    }else if(moving.doing && gameState == 0 && beamAllowed && beamCoolDown){
       shootBeam();
     }
   }else if(playerType === 'spectator'){
@@ -805,6 +822,10 @@ function onKeyUp(e){
 }
 
 function shootBeam() {
+  beamCoolDown = false;
+  setTimeout(function() {
+    beamCoolDown = true;
+  }, 2500);
   raycaster.setFromCamera(new THREE.Vector2(), camera);
   var intersects = raycaster.intersectObjects(scene.children);
   var intersectingPlayers = intersects.filter(function(intersect) {
@@ -840,9 +861,16 @@ function shootBeam() {
       z: endPoint.z
     }
   };
-  console.log('intersects', intersects);
-  console.log(beam);
+  //console.log('intersects', intersects);
+  //console.log(beam);
   mySocket.emit('playerShoots', beam);
+
+}
+
+function handleDeath(data) {
+  console.log('You Died');
+  gameState = 1;
+  restartGame();
 
 }
 
@@ -888,12 +916,14 @@ function handleNetwork(socket) {
     scene.add(beamLine);
     setTimeout(function() {
       scene.remove(beamLine);
-    }, 2000);
+    }, 1200);
 
   });
 
   socket.on('youAreDead', function(data) {
-    console.log('You Died');
+    setTimeout(function() {
+      handleDeath(data);
+    }, 3000);
     //canvas에 죽음 표시
     //닉네임 화면으로 돌아간다
   });
@@ -922,21 +952,3 @@ function handleNetwork(socket) {
 
   console.log("end of handleNetwork");
 }
-
-/*
-//불필요?
-function handleLogic() {
-  console.log('Game is running');
-  // This is where you update your game logic
-}
-
-function handleGraphics() {
-
-}
-*/
-
-
-/*
-module.exports.handleLogic = handleLogic;
-module.exports.handleGraphics = handleGraphics;
-*/
