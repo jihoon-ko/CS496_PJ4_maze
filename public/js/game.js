@@ -72,6 +72,14 @@ var beamCoolDown = true;
 // Spectator variables
 var spectator_info = {target: undefined, idx: -1, x: 0, z: 0, zoom: 0};
 
+// about die
+var player_dead = false;
+var who_kill_me;
+var news = [];
+var news_bottom = [];
+
+var beam_start, beam_end;
+
 fontLoader.load('/assets/koverwatch.json', function(font){
   console.log("loaded");
   font_loaded = true;
@@ -100,6 +108,8 @@ function restartGame(){
   setTimeout(function() {
     beamAllowed = true;
   }, 10000);
+  beam_start = new Date().getTime();
+  beam_end = beam_start + 10000;
 }
 
 function initGame(){
@@ -118,6 +128,8 @@ function initGame(){
   setTimeout(function() {
     beamAllowed = true;
   }, 10000);
+  beam_start = new Date().getTime();
+  beam_end = beam_start + 10000;
 
   animate();
 }
@@ -164,6 +176,9 @@ function initValue(){
   game_result = 0;
   save_view = [];
   spectator_info = {target: undefined, idx: -1, x: 0, z: 0, zoom: 0};
+  player_dead = false;
+  news = [];
+  news_bottom = [];
 }
 
 
@@ -251,8 +266,8 @@ function initObject(){
 }
 
 function initSpectator(){
-  console.log("!!!!!!!!!!!!!!!!");
-  console.log("spectator_init");
+  //console.log("!!!!!!!!!!!!!!!!");
+  //console.log("spectator_init");
   spectator_info = {target: undefined, idx: -1, x: (col-1) * block_size / 2, z: (row-1) * block_size / 2, zoom: row * 4};
 }
 
@@ -538,9 +553,33 @@ function animate(){
         ambientLight.position.z = zz;
       }
       if(moving.doing && save_view.length < max_frame){
-        save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap, otherPeople: other_players});
+        //console.log(save_view.length, news.length, news_bottom.length);
+        var ns = new Array(news.length);
+        var nsb = new Array(news_bottom.length);
+        for(var ii=0;ii<news.length;ii++) ns[ii] = news[ii];
+        for(var ii=0;ii<news_bottom.length;ii++) nsb[ii] = news_bottom[ii]; 
+        if(news.length > 0) console.log(ns);
+        save_view.push({
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+          cx: xx, cy: yy, cz: zz,
+          map: show_minimap,
+          otherPeople: other_players,
+          ns: ns,
+          nsb: nsb,
+          beam: Math.min(100, 100 * (now_time - beam_start) / (beam_end - beam_start))
+        });
       }
-      mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20), map: (!moving.doing || show_minimap)});
+      mySocket.emit('playerSendsUpdates', {
+        time: now_time,
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z,
+        cx: xx, cy: yy, cz: zz,
+        state: (coor.frame % 20),
+        map: (!moving.doing || show_minimap)
+      });
       if(moving.doing) document.body.style.cursor = "none";
       else document.body.style.cursor = "default";
       if(moving.doing){
@@ -575,6 +614,44 @@ function animate(){
     ctx.moveTo(width/2, height/2 + 10);
     ctx.lineTo(width/2, height/2 + 2);
     ctx.stroke();
+    var now_time = new Date().getTime();
+    while(news.length > 0){
+      if(now_time - news[0].time > 1000){
+        news.splice(0, 1);
+      }else{
+        break;
+      }
+    }
+    while(news_bottom.length > 0){
+      if(now_time - news_bottom[0].time > 1000){
+        news_bottom.splice(0, 1);
+      }else{
+        break;
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = "italic 30px Koverwatch";
+    for(var i=0;i<news.length;i++){
+      ctx.fillStyle = "#FA052E";
+      ctx.textAlign = "right";
+      ctx.fillText(news[i].victim, width - 30, 40 * (i+2));
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "right";
+      ctx.fillText(" >>> ", width - 150, 40 * (i+2));
+      ctx.textAlign = "right";
+      ctx.fillText(news[i].killer, width - 200, 40 * (i+2));
+    }
+    ctx.textAlign = "center";
+    for(var i=0;i<news_bottom.length;i++){
+      if(news_bottom[i].kill){
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText((news_bottom[i].target+" 처치(+)"), width / 2, height - 240 - (i * 40));
+      }else{
+        ctx.fillStyle = "#FA052E";
+        ctx.fillText((news_bottom[i].target+"에게 죽음"), width / 2, height - 240 - (i * 40));
+      }
+    }
+    ctx.globalAlpha = 0.5;
     if(gameState == 2){
       ctx.fillStyle = '#333333';
       ctx.fillRect(0, 0, width, 130);
@@ -588,12 +665,11 @@ function animate(){
       ctx.fillText(game_winner, 250, 60);
       ctx.font="italic 20px Koverwatch";
       ctx.fillText("안드로이드", 30, 90);
-
-      var now_time = new Date().getTime();
       var delta = now_time - potg_start;
       var interpolate = (delta * 60) % 1000;
       var now_frm = ((delta * 60) - interpolate) / 1000;
       var nowFrame = getFrame(now_frm);
+      console.log(now_frm, nowFrame.ns.length);
       if(nowFrame.map){
         ctx.globalAlpha = 0.5;
         ctx.fillStyle = '#777777';
@@ -617,24 +693,59 @@ function animate(){
           }
         }
       }
+      ctx.strokeStyle = "#FAA02E";
+      ctx.lineWidth = 15;
+      ctx.globalAlpha = 0.7;
+      ctx.moveTo(width/2, height-225);
+      ctx.beginPath();
+      ctx.arc(width/2, height - 150, 75, - Math.PI / 2, -Math.PI / 2 + (Math.PI * nowFrame.beam / 50), false);
+      ctx.stroke();
+      ctx.font="italic 45px Koverwatch";
+      ctx.textAlign="center";
+      ctx.fillStyle="#FFFFFF";
+      ctx.fillText(nowFrame.beam + "%", width/2, height-135);
+      ctx.globalAlpha = 1;
+      ctx.font = "italic 30px Koverwatch";
+      for(var i=0;i<nowFrame.ns.length;i++){
+        ctx.fillStyle = "#FA052E";
+        ctx.textAlign = "right";
+        ctx.fillText(nowFrame.ns[i].victim, width - 30, 40 * (i+2));
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "right";
+        ctx.fillText(" >>> ", width - 150, 40 * (i+2));
+        ctx.textAlign = "right";
+        ctx.fillText(nowFrame.ns[i].killer, width - 200, 40 * (i+2));
+      }
+      ctx.textAlign = "center";
+      for(var i=0;i<nowFrame.nsb.length;i++){
+        if(nowFrame.nsb[i].kill){
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillText((nowFrame.nsb[i].target+" 처치(+)"), width / 2, height - 240 - (i * 40));
+        }else{
+          ctx.fillStyle = "#FA052E";
+          ctx.fillText((nowFrame.nsb[i].target+"에게 죽음"), width / 2, height - 240 - (i * 40));
+        }
+      }
     }else if(gameState == 1){
       ctx.font="italic 100px Koverwatch";
       ctx.globalAlpha = 1;
       //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
       ctx.textAlign = "center";
-      var resultText = function(){
-        if(playerType === 'player' && game_result > 0){
-          ctx.fillStyle = '#FAA02E';
-          return "승리!";
-        }else if(playerType === 'player' && game_result < 0){
-          ctx.fillStyle = '#FA052E';
-          return "패배";
-        }else{
-          ctx.fillStyle = '#FFFFFF';
-          return "게임 종료";
-        }
-      };
-      ctx.fillText(resultText(), width/2, height/2 + 10);
+      if(!player_dead){
+        var resultText = function(){
+          if(playerType === 'player' && game_result > 0){
+            ctx.fillStyle = '#FAA02E';
+            return "승리!";
+          }else if(playerType === 'player' && game_result < 0){
+            ctx.fillStyle = '#FA052E';
+            return "패배";
+          }else{
+            ctx.fillStyle = '#FFFFFF';
+            return "게임 종료";
+          }
+        };
+        ctx.fillText(resultText(), width/2, height/2 + 10);
+      }
     }else if(playerType == 'spectator'){
       ctx.globalAlpha = 1;
       ctx.textAlign = "left";
@@ -672,6 +783,25 @@ function animate(){
         }
       }
     }else{
+      if(playerType === 'player'){
+        ctx.strokeStyle = "#FAA02E";
+        ctx.lineWidth = 15;
+        if(beam_end <= now_time){
+          percentage = 100;
+        }else{
+          percentage = 100 * (now_time - beam_start) / (beam_end - beam_start);
+        }
+        ctx.globalAlpha = 0.7;
+        ctx.moveTo(width/2, height-225);
+        ctx.beginPath();
+        ctx.arc(width/2, height - 150, 75, - Math.PI / 2, -Math.PI / 2 + (Math.PI * percentage / 50), false);
+        ctx.stroke();
+        ctx.font="italic 45px Koverwatch";
+        ctx.textAlign="center";
+        ctx.fillStyle="#FFFFFF";
+        ctx.fillText(percentage + "%", width/2, height-135);
+      }
+      ctx.globalAlpha = 0.5;
       if(!moving.doing || show_minimap){
         ctx.fillStyle = '#777777';
         ctx.fillRect(width / 2 - 240, height / 2 - 240, 480, 480);
@@ -864,7 +994,9 @@ function shootBeam() {
   beamCoolDown = false;
   setTimeout(function() {
     beamCoolDown = true;
-  }, 2500);
+  }, 1000);
+  beam_start = new Date().getTime();
+  beam_end = beam_start + 1000;
   raycaster.setFromCamera(new THREE.Vector2(), camera);
   var intersects = raycaster.intersectObjects(scene.children);
   var intersectingPlayers = intersects.filter(function(intersect) {
@@ -880,6 +1012,7 @@ function shootBeam() {
     victim = other_players.find(function(player) {
       return player.id === victimObject.playerId;
     });
+    news_bottom.push({'time': new Date().getTime(), 'kill': true, 'target': victim.name});
   }
   if(validIntersects.length > 0) {
     endPoint = validIntersects[0].point;
@@ -908,9 +1041,7 @@ function shootBeam() {
 
 function handleDeath(data) {
   console.log('You Died');
-  gameState = 1;
   restartGame();
-
 }
 
 function handleNetwork(socket) {
@@ -942,7 +1073,7 @@ function handleNetwork(socket) {
 
   socket.on('serverBroadcastsBeam', function(beam) {
     //drawBeam
-    var beamMaterial = new THREE.LineBasicMaterial( { color: 0xffff55, linewidth: 3 });
+    var beamMaterial = new THREE.LineBasicMaterial( { color: 0xffff55, linewidth: 10 });
     var lineGeometry = new THREE.Geometry();
     lineGeometry.vertices.push(
       new THREE.Vector3(beam.startPoint.x, beam.startPoint.y, beam.startPoint.z)
@@ -963,6 +1094,12 @@ function handleNetwork(socket) {
     setTimeout(function() {
       handleDeath(data);
     }, 3000);
+    gameState = 1;
+    stopGame();
+    who_kill_me = data.killer.name;
+    player_dead = true;
+    news_bottom.push({'time': new Date().getTime(), 'kill': false, 'target': data.killer.name});
+    news.push({time: new Date().getTime(), killer: data.killer.name, victim: who_am_i.name});
     //canvas에 죽음 표시
     //닉네임 화면으로 돌아간다
   });
@@ -970,6 +1107,7 @@ function handleNetwork(socket) {
   socket.on('playerDies', function(data) {
     console.log('Somebody died');
     //canvas에 죽음 표시
+    news.push({time: new Date().getTime(), killer: data.killer.name, victim: data.victim.name});
   });
 
   socket.on('error', function(error) {
@@ -985,6 +1123,7 @@ function handleNetwork(socket) {
     game_winner = winner;
     potg_start = new Date().getTime() + 3000;
     game_potg = potg;
+    console.log(potg);
     stopGame();
     setTimeout(function(){gameState = 2;}, 3000);
   });

@@ -33,7 +33,7 @@ function getAllUsers() {
 var sockets = {};
 
 function loadMaze(){
-  return util.getNewMaze(6,6);
+  return util.getNewMaze(2,2);
 }
 
 var maze = loadMaze();
