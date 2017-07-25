@@ -54,6 +54,7 @@ io.on('connection', function (socket) {
     if(userType === 'player') {
       //init player data: location, angle etc ...
       players.push(currentUser);
+      console.log('user required game', players);
       socket.emit('serverAcceptsPlayer', maze, currentUser);
     } else if(userType === 'spectator') {
       //init spectator data
@@ -62,6 +63,13 @@ io.on('connection', function (socket) {
     } else {
       console.log('user type error');
     }
+  });
+
+  socket.on('playerRequiresRevive', function () {
+    if(players.findIndex(function(player) { return player.id === currentUser.id; }) == -1) {
+      players.push(currentUser);
+    }
+    console.log('user required revive', players);
   });
 
   socket.on('playerSendsUpdates', function (data) {
