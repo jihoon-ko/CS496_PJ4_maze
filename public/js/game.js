@@ -1,5 +1,6 @@
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 100 );
+var raycaster = new THREE.Raycaster();
 
 var cvs = document.getElementById('myCanvas');
 var renderer = new THREE.WebGLRenderer({canvas: cvs});
@@ -105,7 +106,7 @@ function stopGame(){
 
 function initModel(){
   var jsonLoader = new THREE.JSONLoader();
-  jsonLoader.load("/js/android-animations.js", addModelToScene); 
+  jsonLoader.load("/js/android-animations.js", addModelToScene);
 }
 
 function addModel(){
@@ -214,7 +215,7 @@ function initObject(){
           var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
           wall[i][j] = new THREE.Mesh(wall_geometry, material);
           wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
-          scene.add(wall[i][j]); 
+          scene.add(wall[i][j]);
         }
       }
     }
@@ -238,7 +239,7 @@ function animate(){
   //   console.log('test emitted');
   //   return "test";
   // })());
-  
+
   var width = window.innerWidth; var height = window.innerHeight;
   var movingTask = function(){
     requestAnimationFrame( animate );
@@ -275,7 +276,7 @@ function animate(){
         var jump_time = (now_time - jump.time) / 1000.0;
         if(jump_time > 2.0 * Math.PI / 9.8){
           jump.jumping = false;
-        }else{       
+        }else{
           plus_y = Math.PI * jump_time - 0.5 * gravity * jump_time * jump_time;
         }
       }
@@ -294,7 +295,7 @@ function animate(){
       }
       if(press.right){
         coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-        coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;    
+        coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;
       }
       //console.log(delta_time, coor.v_x, coor.v_z);
       var prev_x = coor.x, prev_z = coor.z;
@@ -323,7 +324,7 @@ function animate(){
       var zz = coor.z - 100 * Math.cos(coor.deg);
       camera.lookAt(new THREE.Vector3(xx, yy, zz));
       //console.log(other_players.length);
-      
+
       for(var i=0;i<20;i++){
         if(android && android[i]){
           if(other_players.length <= i){
@@ -352,55 +353,55 @@ function animate(){
         }
         */
       }
-    }
-    if(font_loaded){
-      //console.log(other_players);
-      if(name3d){
-        for(var j=0;j<name3d.length;j++){
-          scene.remove(name3d[j]);  
+      if(font_loaded){
+        //console.log(other_players);
+        if(name3d){
+          for(var j=0;j<name3d.length;j++){
+            scene.remove(name3d[j]);
+          }
+        }
+        name3d = new Array(other_players.length);
+
+        for(var j=0;j<other_players.length;j++){
+          var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
+            font: font_res,
+            size: 0.2,
+            height: 0.01,
+            curveSegments: 20,
+            bevelEnabled: false,
+            bevelThickness: 0.1,
+            bevelSize: 0.1,
+            bevelSegments: 1
+          });
+          fontGeometry.computeBoundingBox();
+          fontGeometry.computeVertexNormals();
+          var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+          var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
+          name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
+          name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
+          name3d[j].rotation.y = xdeg;
+          scene.add(name3d[j]);
         }
       }
-      name3d = new Array(other_players.length);
-
-      for(var j=0;j<other_players.length;j++){
-        var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
-          font: font_res,
-          size: 0.2,
-          height: 0.01,
-          curveSegments: 20,
-          bevelEnabled: false,
-          bevelThickness: 0.1,
-          bevelSize: 0.1,
-          bevelSegments: 1
-        });
-        fontGeometry.computeBoundingBox();
-        fontGeometry.computeVertexNormals();
-        var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
-        var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
-        name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
-        name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
-        name3d[j].rotation.y = xdeg;
-        scene.add(name3d[j]);
+      if(ambientLight){
+        ambientLight.position.x = xx;
+        ambientLight.position.y = camera.position.y;
+        ambientLight.position.z = zz;
       }
-    }
-    if(ambientLight){
-      ambientLight.position.x = xx;
-      ambientLight.position.y = camera.position.y;
-      ambientLight.position.z = zz;
-    }
-    if(moving.doing && save_view.length < max_frame){
-      save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
-    }
-    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20)});
-    if(moving.doing) document.body.style.cursor = "none";
-    else document.body.style.cursor = "default";
-    if(moving.doing){
-      if(cursor_now.x <= 0.02 * width){
-        moving.ori_deg -= moveScale.deg * Math.PI / 180.0;
-        coor.deg -= moveScale.deg * Math.PI / 180.0;
-      }if(cursor_now.x >= 0.98 * width){
-        moving.ori_deg += moveScale.deg * Math.PI / 180.0;
-        coor.deg += moveScale.deg * Math.PI / 180.0;
+      if(moving.doing && save_view.length < max_frame){
+        save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
+      }
+      mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20)});
+      if(moving.doing) document.body.style.cursor = "none";
+      else document.body.style.cursor = "default";
+      if(moving.doing){
+        if(cursor_now.x <= 0.02 * width){
+          moving.ori_deg -= moveScale.deg * Math.PI / 180.0;
+          coor.deg -= moveScale.deg * Math.PI / 180.0;
+        }if(cursor_now.x >= 0.98 * width){
+          moving.ori_deg += moveScale.deg * Math.PI / 180.0;
+          coor.deg += moveScale.deg * Math.PI / 180.0;
+        }
       }
     }
   };
@@ -523,7 +524,7 @@ function onKeyDown(e){
     }
     // Down
     if(e.keyCode == 40 || e.keyCode == 83){
-      if(!(press.down)){  
+      if(!(press.down)){
         press.down = true;
       }
     }
@@ -597,10 +598,20 @@ function initSpectator() {
 
 }
 
+function shootBeam() {
+  raycaster.setFromCamera(new THREE.Vector2(), camera);
+  var intersects = raycaster.intersectObjects(scene.children);
+  intersects.filter(function(intersect) {
+
+  });
+
+
+}
+
 function handleNetwork(socket) {
   console.log('game.handleNetwork started');
   console.log('socket: ', socket);
-  
+
   socket.emit('userRequiresGame', playerName, playerType);
 
   socket.on('serverAcceptsPlayer', function(_maze, _player) {
@@ -622,13 +633,25 @@ function handleNetwork(socket) {
     restartGame();
   });
 
-  socket.on('testEvent', function (testString) {
-    console.log('testEvent: ' + testString);
+  socket.on('serverBroadcastsBeam', function(beam) {
+    //drawBeam
   });
-  socket.on('error', function(error){
+
+  socket.on('youAreDead', function(data) {
+    console.log('You Died');
+    //canvas에 죽음 표시
+    //닉네임 화면으로 돌아간다
+  });
+
+  socket.on('playerDies', function(data) {
+    console.log('Somebody died');
+    //canvas에 죽음 표시
+  });
+
+  socket.on('error', function(error) {
     console.log(error);
   });
-  socket.on('disconnected', function(){
+  socket.on('disconnected', function() {
     console.log("!!!");
   });
   socket.on('roundFinished', function(potg, result, winner){

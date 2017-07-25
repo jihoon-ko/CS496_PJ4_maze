@@ -102,6 +102,18 @@ io.on('connection', function (socket) {
 
   });
 
+  socket.on('playerShoots', function (beam) {
+    //testBeam(beam);
+    io.emit('serverBroadcastsBeam', beam);
+    if(beam.victim) {
+      sockets[beam.victim.id].emit('youAreDead', { killer: currentUser });
+      sockets[beam.victim.id].broadcast.emit('playerDies', { killer: currentUser, victim: beam.victim });
+      players = players.filter(function (p) {
+        return (p.id !== beam.victim.id);
+      });
+    }
+  });
+
   socket.on('disconnecting', function (reason) {
     console.log('disconnecting', socket.id, reason);
   });
@@ -111,9 +123,9 @@ io.on('connection', function (socket) {
   });
 
 });
+
 function sendUpdates () {
   //send updates to other users
-
   var users = getAllUsers();
   users.forEach(function (user) {
     sockets[user.id].emit(
@@ -140,14 +152,20 @@ function startNewRound() {
   });
 
 }
+//
+// function testBeam(beam) {
+//   players.forEach(function (player) {
+//     var hitBox;
+//     if(false) { //test collision
+//       sockets[player.id].emit('youAreDead', { killer: beam.shooter });
+//       sockets[player.id].broadcast.emit('playerDies', { killer: beam.shooter, victim: player });
+//     }
+//   });
+//
+// }
 
-function testEventEmit() {
-  if(players.length > 0) {
-    console.log('testEventEmit');
-    sockets[players[0].id].emit('testEvent');
-  }
-}
-setInterval(sendUpdates, 1000 / 30);
+setInterval(gameLoop, 1000 / 60);
+setInterval(sendUpdates, 1000 / 40);
 
 
 
