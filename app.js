@@ -27,16 +27,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 var players = [];
 var spectators = [];
+var players_dead = [];
 function getAllUsers() {
-  return players.concat(spectators);
+  return players_dead.concat(players.concat(spectators));
 }
 var sockets = {};
 
 function loadMaze(){
-  return util.getNewMaze(2,2);
+  return util.getNewMaze(5,5);
 }
 
 var maze = loadMaze();
+var round_finished = false;
 
 io.on('connection', function (socket) {
   console.log("Somebody connected!", socket.id);
@@ -66,6 +68,12 @@ io.on('connection', function (socket) {
   });
 
   socket.on('playerRequiresRevive', function () {
+    for(var i=0;i<players_dead.length;i++){
+      if(players_dead[i].id == currentUser.id){
+        players_dead.splice(i, 1);
+        break;
+      }
+    }
     if(players.findIndex(function(player) { return player.id === currentUser.id; }) == -1) {
       players.push(currentUser);
     }
@@ -87,6 +95,8 @@ io.on('connection', function (socket) {
   });
 
   socket.on('playerWins', function (potg) {
+    if(round_finished) return;
+    round_finished = true;
     var users = getAllUsers();
     users.forEach(function(user) {
       user.result = (user.id === currentUser.id);
@@ -100,6 +110,9 @@ io.on('connection', function (socket) {
     console.log('disconnected', socket.id, reason);
     if (currentUser.type === 'player') {
       players = players.filter(function (p) {
+        return p.id !== currentUser.id;
+      });
+      players_dead = players_dead.filter(function (p) {
         return p.id !== currentUser.id;
       });
       console.log(players);
@@ -123,6 +136,9 @@ io.on('connection', function (socket) {
       players = players.filter(function (p) {
         return (p.id !== beam.victim.id);
       });
+      if(players_dead.findIndex(function(player) { return player.id === currentUser.id; }) == -1) {
+        players_dead.push(currentUser);
+      }
     }
   });
 
@@ -152,7 +168,7 @@ function roundFinished(potg, winner) {
   users.forEach(function (user) {
     sockets[user.id].emit('roundFinished', potg, user.result, winner);
   });
-  setTimeout(function(){ console.log("sigongzoa"); startNewRound(); }, 3000 + (potg.length * 1000 / 60));//potg 영상 재생 끝나는 시간 측정해서 대기한 후에: TODO
+  setTimeout(function(){ startNewRound(); }, 3000 + (potg.length * 1000 / 60));//potg 영상 재생 끝나는 시간 측정해서 대기한 후에: TODO
 }
 
 
@@ -162,7 +178,7 @@ function startNewRound() {
   users.forEach(function (user) {
     sockets[user.id].emit('serverStartsNewRound', maze);
   });
-
+  round_finished = false;
 }
 //
 // function testBeam(beam) {

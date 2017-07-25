@@ -311,7 +311,7 @@ function animate(){
         ambientLight.position.z = camera.position.z;
       }
       other_players = nowFrame.otherPeople;
-      console.log(nowFrame);
+      //console.log(nowFrame);
       for(var i=0;i<20;i++){
         if(android && android[i]){
           if(other_players.length <= i){
@@ -467,7 +467,7 @@ function animate(){
       }
       if(moving.doing && maze[rr][cc] === undefined){
         console.log("SUCCESS!!!!");
-        console.log(save_view);
+        //console.log(save_view);
         stopGame();
         httpRequest = new XMLHttpRequest();
         httpRequest.onreadystatechange = alertContents;
@@ -558,7 +558,7 @@ function animate(){
         var nsb = new Array(news_bottom.length);
         for(var ii=0;ii<news.length;ii++) ns[ii] = news[ii];
         for(var ii=0;ii<news_bottom.length;ii++) nsb[ii] = news_bottom[ii]; 
-        if(news.length > 0) console.log(ns);
+
         save_view.push({
           x: camera.position.x,
           y: camera.position.y,
@@ -669,7 +669,7 @@ function animate(){
       var interpolate = (delta * 60) % 1000;
       var now_frm = ((delta * 60) - interpolate) / 1000;
       var nowFrame = getFrame(now_frm);
-      console.log(now_frm, nowFrame.ns.length);
+
       if(nowFrame.map){
         ctx.globalAlpha = 0.5;
         ctx.fillStyle = '#777777';
@@ -731,7 +731,9 @@ function animate(){
       ctx.globalAlpha = 1;
       //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
       ctx.textAlign = "center";
-      if(!player_dead){
+
+      if(game_result != 0 || !player_dead){
+
         var resultText = function(){
           if(playerType === 'player' && game_result > 0){
             ctx.fillStyle = '#FAA02E';
@@ -869,7 +871,7 @@ function onMouseDown(e){
   }else if(playerType === 'spectator'){
     if(spectator_info.target === undefined){
       if(other_players.length == 0){
-        console.log(initSpectator);
+        //console.log(initSpectator);
         initSpectator();
       }
       else{
@@ -1041,7 +1043,7 @@ function shootBeam() {
 
 function handleDeath(data) {
   console.log('You Died');
-  restartGame();
+  if(game_result == 0) restartGame();
 }
 
 function handleNetwork(socket) {
@@ -1123,7 +1125,7 @@ function handleNetwork(socket) {
     game_winner = winner;
     potg_start = new Date().getTime() + 3000;
     game_potg = potg;
-    console.log(potg);
+
     stopGame();
     setTimeout(function(){gameState = 2;}, 3000);
   });
