@@ -58,8 +58,15 @@ var game_result = 0;
 var fontMaterials = [new THREE.MeshBasicMaterial({color: 0x000000}),
                      new THREE.MeshBasicMaterial({color: 0x000000})];
 
+var game_starttime;
+
 var potg_start, game_winner;
 var game_potg;
+
+
+// Spectator variables
+var spectator_info = {target: undefined, idx: -1, x: 0, z: 0, zoom: 0};
+
 fontLoader.load('/assets/koverwatch.json', function(font){
   console.log("loaded");
   font_loaded = true;
@@ -138,6 +145,7 @@ function initValue(){
   gameState = 0;
   game_result = 0;
   save_view = [];
+  spectator_info = {target: undefined, idx: -1, x: 0, z: 0, zoom: 0};
 }
 
 
@@ -185,24 +193,20 @@ function initObject(){
     var loader = new THREE.TextureLoader();
     texture = loader.load( "assets/UV_Grid_Sm.jpg" );
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set( 0.008, 0.008 );
+    texture.repeat.set( 0.05, 0.05 );
   };
   var drawBottom = function(){
     var sqPts = [];
-    sqPts.push(new THREE.Vector2(-col * block_size, -row * block_size));
-    sqPts.push(new THREE.Vector2( col * block_size, -row * block_size));
-    sqPts.push(new THREE.Vector2( col * block_size,  row * block_size));
-    sqPts.push(new THREE.Vector2(-col * block_size,  row * block_size));
-    sqPts.push(new THREE.Vector2(-col * block_size, -row * block_size));
+    sqPts.push(new THREE.Vector2(-col * block_size / 2, -row * block_size / 2));
+    sqPts.push(new THREE.Vector2( col * block_size / 2, -row * block_size / 2));
+    sqPts.push(new THREE.Vector2( col * block_size / 2,  row * block_size / 2));
+    sqPts.push(new THREE.Vector2(-col * block_size / 2,  row * block_size / 2));
+    sqPts.push(new THREE.Vector2(-col * block_size / 2, -row * block_size / 2));
     var square = new THREE.Shape(sqPts);
     var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
-    Bottom.position.set(0, 0, 0);
+    Bottom.position.set((col-1) * block_size / 2, 0, (row-1) * block_size / 2);
     Bottom.rotation.x = -Math.PI/2;
     scene.add(Bottom);
-    var geometry = new THREE.SphereGeometry( 0.007, 32, 32 );
-    var material = new THREE.MeshBasicMaterial( {color: 0xff0000} );
-    Sphere = new THREE.Mesh( geometry, material );
-    //scene.add( Sphere );
   };
   var makemaze = function(){
     wall = new Array(row);
@@ -222,7 +226,16 @@ function initObject(){
   loadTexture();
   drawBottom();
   makemaze();
+  initSpectator();
+  game_starttime = new Date().getTime();
 }
+
+function initSpectator(){
+  console.log("!!!!!!!!!!!!!!!!");
+  console.log("spectator_init");
+  spectator_info = {target: undefined, idx: -1, x: (col-1) * block_size / 2, z: (row-1) * block_size / 2, zoom: row * 4};
+}
+
 function alertContents(){
   console.log(httpRequest.status);
 }
@@ -262,7 +275,80 @@ function animate(){
         ambientLight.position.y = camera.position.y;
         ambientLight.position.z = camera.position.z;
       }
-      console.log(now_frm, interpolate);
+      if(name3d){
+        for(var j=0;j<name3d.length;j++){
+          scene.remove(name3d[j]);
+        }
+      }
+      name3d = [];
+      for(var i=0;i<20;i++) android[i].position.set(0, -1000, 0);
+    }else if(playerType === 'spectator'){
+      if(spectator_info.target !== undefined){
+        spectator_info.idx = -1;
+        for(var i=0;i<other_players.length;i++){
+          if(other_players[i].id == spectator_info.target){
+            spectator_info.idx = i;
+            break;
+          }
+        }
+        if(spectator_info.idx === -1){
+          initSpectator();
+        }
+      }
+      if(spectator_info.target === undefined){
+        camera.position.set(spectator_info.x, 10, spectator_info.z);
+        camera.lookAt(new THREE.Vector3(spectator_info.x, -80, spectator_info.z));
+      }else{
+        var target_player = other_players[spectator_info.idx];
+        camera.position.x = (100 * target_player.x - target_player.cx) / 101;
+        camera.position.y = (100 * target_player.y - target_player.cy) / 101;
+        camera.position.z = (100 * target_player.z - target_player.cz) / 101;
+        camera.lookAt(new THREE.Vector3(target_player.cx, target_player.cy, target_player.cz));
+      }
+      for(var i=0;i<20;i++){
+        if(android && android[i]){
+          if(other_players.length <= i){
+            android[i].position.set(0, -1000, 0);
+          }else{
+            android[i].position.x = other_players[i].x;
+            android[i].position.y = other_players[i].y - 1;
+            android[i].position.z = other_players[i].z;
+            var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
+            android[i].rotation.y = xdeg;
+            for(var j=0;j<20;j++){
+              android[i].morphTargetInfluences[j] = 0;
+            }
+            android[i].morphTargetInfluences[other_players[i].state] = 1;
+          }
+        }
+      }
+      if(name3d){
+        for(var j=0;j<name3d.length;j++){
+          scene.remove(name3d[j]);
+        }
+      }
+      name3d = new Array(other_players.length);
+
+      for(var j=0;j<other_players.length;j++){
+        var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
+          font: font_res,
+          size: 0.2,
+          height: 0.01,
+          curveSegments: 20,
+          bevelEnabled: false,
+          bevelThickness: 0.1,
+          bevelSize: 0.1,
+          bevelSegments: 1
+        });
+        fontGeometry.computeBoundingBox();
+        fontGeometry.computeVertexNormals();
+        var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+        var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
+        name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
+        name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
+        name3d[j].rotation.y = xdeg;
+        scene.add(name3d[j]);
+      }
     }else{
       camera.position.x = coor.x;
       camera.position.z = coor.z;
@@ -333,7 +419,8 @@ function animate(){
             android[i].position.y = other_players[i].y - 1;
             android[i].position.z = other_players[i].z;
             var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
-            android[i].rotation.y = xdeg;
+            if(i != spectator_info.idx) android[i].rotation.y = xdeg;
+            else android[i].rotation.y = xdeg;
             for(var j=0;j<20;j++){
               android[i].morphTargetInfluences[j] = 0;
             }
@@ -352,55 +439,56 @@ function animate(){
         }
         */
       }
-    }
-    if(font_loaded){
-      //console.log(other_players);
-      if(name3d){
-        for(var j=0;j<name3d.length;j++){
-          scene.remove(name3d[j]);  
+      if(font_loaded){
+        //console.log(other_players);
+        if(name3d){
+          for(var j=0;j<name3d.length;j++){
+            scene.remove(name3d[j]);
+          }
+        }
+        name3d = new Array(other_players.length);
+
+        for(var j=0;j<other_players.length;j++){
+          var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
+            font: font_res,
+            size: 0.2,
+            height: 0.01,
+            curveSegments: 20,
+            bevelEnabled: false,
+            bevelThickness: 0.1,
+            bevelSize: 0.1,
+            bevelSegments: 1
+          });
+          fontGeometry.computeBoundingBox();
+          fontGeometry.computeVertexNormals();
+          var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
+          var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
+          name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
+          name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
+          if(j != spectator_info.idx) name3d[j].rotation.y = xdeg;
+          else name3d[j].rotation.y = xdeg + Math.PI;
+          scene.add(name3d[j]);
         }
       }
-      name3d = new Array(other_players.length);
-
-      for(var j=0;j<other_players.length;j++){
-        var fontGeometry = new THREE.TextGeometry( other_players[j].name, {
-          font: font_res,
-          size: 0.2,
-          height: 0.01,
-          curveSegments: 20,
-          bevelEnabled: false,
-          bevelThickness: 0.1,
-          bevelSize: 0.1,
-          bevelSegments: 1
-        });
-        fontGeometry.computeBoundingBox();
-        fontGeometry.computeVertexNormals();
-        var xdeg = Math.atan2(other_players[j].cx - other_players[j].x, other_players[j].cz - other_players[j].z);
-        var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
-        name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
-        name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
-        name3d[j].rotation.y = xdeg;
-        scene.add(name3d[j]);
+      if(ambientLight){
+        ambientLight.position.x = xx;
+        ambientLight.position.y = camera.position.y;
+        ambientLight.position.z = zz;
       }
-    }
-    if(ambientLight){
-      ambientLight.position.x = xx;
-      ambientLight.position.y = camera.position.y;
-      ambientLight.position.z = zz;
-    }
-    if(moving.doing && save_view.length < max_frame){
-      save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
-    }
-    mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20)});
-    if(moving.doing) document.body.style.cursor = "none";
-    else document.body.style.cursor = "default";
-    if(moving.doing){
-      if(cursor_now.x <= 0.02 * width){
-        moving.ori_deg -= moveScale.deg * Math.PI / 180.0;
-        coor.deg -= moveScale.deg * Math.PI / 180.0;
-      }if(cursor_now.x >= 0.98 * width){
-        moving.ori_deg += moveScale.deg * Math.PI / 180.0;
-        coor.deg += moveScale.deg * Math.PI / 180.0;
+      if(moving.doing && save_view.length < max_frame){
+        save_view.push({x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, map: show_minimap});
+      }
+      mySocket.emit('playerSendsUpdates', {time: now_time, x: camera.position.x, y: camera.position.y, z: camera.position.z, cx: xx, cy: yy, cz: zz, state: (coor.frame % 20), map: (!moving.doing || show_minimap)});
+      if(moving.doing) document.body.style.cursor = "none";
+      else document.body.style.cursor = "default";
+      if(moving.doing){
+        if(cursor_now.x <= 0.02 * width){
+          moving.ori_deg -= moveScale.deg * Math.PI / 180.0;
+          coor.deg -= moveScale.deg * Math.PI / 180.0;
+        }if(cursor_now.x >= 0.98 * width){
+          moving.ori_deg += moveScale.deg * Math.PI / 180.0;
+          coor.deg += moveScale.deg * Math.PI / 180.0;
+        }
       }
     }
   };
@@ -438,24 +526,89 @@ function animate(){
       ctx.fillText(game_winner, 250, 60);
       ctx.font="italic 20px Koverwatch";
       ctx.fillText("안드로이드", 30, 90);
+      
+      var now_time = new Date().getTime();
+      var delta = now_time - potg_start;
+      var interpolate = (delta * 60) % 1000;
+      var now_frm = ((delta * 60) - interpolate) / 1000;
+      var nowFrame = getFrame(now_frm);
+      if(nowFrame.map){
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#777777';
+        ctx.fillRect(width / 2 - 240, height / 2 - 240, 480, 480);
+        var rr = Math.floor((camera.position.z / block_size) + 0.5);
+        var cc = Math.floor((camera.position.x / block_size) + 0.5);
+        for(var i=-5;i<=5;i++){
+          for(var j=-5;j<=5;j++){
+            if(rr + i < 0 || cc + j < 0 || rr + i >= row || cc + j >= col){
+              continue;
+            }else if(maze[rr + i][cc + j] === 1){
+              ctx.fillStyle = '#000000';
+            }else if(maze[rr + i][cc + j] === 0){
+              if(i == 0 && j == 0){
+                ctx.fillStyle = '#FFFF00';
+              }else{
+                ctx.fillStyle = '#FFFFFF';
+              }
+            }
+            ctx.fillRect(width / 2 - 20  + 40 * j + 2, height / 2 - 20 + 40 * i + 2, 36, 36);
+          }
+        }
+      }
     }else if(gameState == 1){
       ctx.font="italic 100px Koverwatch";
       ctx.globalAlpha = 1;
       //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
       ctx.textAlign = "center";
       var resultText = function(){
-        if(game_result > 0){
+        if(playerType === 'player' && game_result > 0){
           ctx.fillStyle = '#FAA02E';
           return "승리!";
-        }else if(game_result < 0){
+        }else if(playerType === 'player' && game_result < 0){
           ctx.fillStyle = '#FA052E';
           return "패배";
         }else{
           ctx.fillStyle = '#FFFFFF';
           return "게임 종료";
         }
-      }
+      };
       ctx.fillText(resultText(), width/2, height/2 + 10);
+    }else if(playerType == 'spectator'){
+      ctx.globalAlpha = 1;
+      ctx.textAlign = "left";
+      ctx.font="italic 50px Koverwatch";
+      ctx.fillStyle = '#FFFFFF';
+      var resultText = function(){
+        if(spectator_info.target === undefined){
+          return "전체 보기";
+        }else{
+          return other_players[spectator_info.idx].name;
+        }
+      };
+      ctx.fillText(resultText(), 30, height - 100);
+      if(spectator_info.target !== undefined && other_players[spectator_info.idx].map){
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#777777';
+        ctx.fillRect(width / 2 - 240, height / 2 - 240, 480, 480);
+        var rr = Math.floor((other_players[spectator_info.idx].z / block_size) + 0.5);
+        var cc = Math.floor((other_players[spectator_info.idx].x / block_size) + 0.5);
+        for(var i=-5;i<=5;i++){
+          for(var j=-5;j<=5;j++){
+            if(rr + i < 0 || cc + j < 0 || rr + i >= row || cc + j >= col){
+              continue;
+            }else if(maze[rr + i][cc + j] === 1){
+              ctx.fillStyle = '#000000';
+            }else if(maze[rr + i][cc + j] === 0){
+              if(i == 0 && j == 0){
+                ctx.fillStyle = '#FFFF00';
+              }else{
+                ctx.fillStyle = '#FFFFFF';
+              }
+            }
+            ctx.fillRect(width / 2 - 20  + 40 * j + 2, height / 2 - 20 + 40 * i + 2, 36, 36);
+          }
+        }
+      }
     }else{
       if(!moving.doing || show_minimap){
         ctx.fillStyle = '#777777';
@@ -479,12 +632,18 @@ function animate(){
           }
         }
       }
+      if(new Date().getTime() - game_starttime <= 1500){
+        ctx.globalAlpha = 1;
+        ctx.font="italic 60px Koverwatch";
+        ctx.textAlign = "center";
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText("미로를 탈출하십시오", width/2, 180);
+      }
     }
   };
   movingTask();
   planeTask();
   renderer.render(scene, camera);
-
 }
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -503,60 +662,104 @@ function onMouseMove(e){
     //console.log(coor.ydeg);
   }
 }
+
 function onMouseDown(e){
-  if(!moving.doing && gameState == 0){
-    moving.doing = true;
-    var width = window.innerWidth; var height = window.innerHeight;
-    moving.ori_x = 0.5 * width;//e.clientX;
-    moving.ori_y = 0.5 * height;
-    moving.ori_deg = coor.deg;
+  if(playerType === 'player'){
+    if(!moving.doing && gameState == 0){
+      moving.doing = true;
+      var width = window.innerWidth; var height = window.innerHeight;
+      moving.ori_x = 0.5 * width;//e.clientX;
+      moving.ori_y = 0.5 * height;
+      moving.ori_deg = coor.deg;
+    }
+  }else if(playerType === 'spectator'){
+    if(spectator_info.target === undefined){
+      if(other_players.length == 0){
+        console.log(initSpectator);
+        initSpectator();
+      }
+      else{
+        spectator_info.target = other_players[0].id;
+        spectator_info.idx = 0;
+      }
+    }else{
+      for(var i=0;i<other_players.length;i++){
+        if(other_players[i].id === spectator_info.target){
+          if(other_players.length == i+1) initSpectator();
+          else{
+            spectator_info.target = other_players[i+1].id;
+            spectator_info.idx = i+1;
+          }
+          break;
+        }
+      }
+    }
   }
 }
 function onKeyDown(e){
   //console.log("keydown", e.keyCode);
-  if(moving.doing){
+  if(playerType === 'spectator'){
     // Up
     if(e.keyCode == 38 || e.keyCode == 87){
-      if(!(press.up)){
-        press.up = true;
-      }
+      spectator_info.z -= 1;
     }
     // Down
     if(e.keyCode == 40 || e.keyCode == 83){
-      if(!(press.down)){  
-        press.down = true;
-      }
+      spectator_info.z += 1; 
     }
     // Left
     if(e.keyCode == 37 || e.keyCode == 65){
-      if(!(press.left)){
-        press.left = true;
-      }
-      //coor.deg -= moveScale.deg * Math.PI / 180.0;
+      spectator_info.x -= 1;
     }
     // Right
     if(e.keyCode == 39 || e.keyCode == 68){
-      if(!(press.right)){
-        press.right = true;
+      spectator_info.x += 1;
+    }
+  }else{
+    if(moving.doing){
+      // Up
+      if(e.keyCode == 38 || e.keyCode == 87){
+        if(!(press.up)){
+          press.up = true;
+        }
+      }
+      // Down
+      if(e.keyCode == 40 || e.keyCode == 83){
+        if(!(press.down)){  
+          press.down = true;
+        }
+      }
+      // Left
+      if(e.keyCode == 37 || e.keyCode == 65){
+        if(!(press.left)){
+          press.left = true;
+        }
+        //coor.deg -= moveScale.deg * Math.PI / 180.0;
+      }
+      // Right
+      if(e.keyCode == 39 || e.keyCode == 68){
+        if(!(press.right)){
+          press.right = true;
+        }
+      }
+      // Esc
+      if(e.keyCode == 27){
+        moving.doing = false;
+      }
+      // Space
+      if(e.keyCode == 32){
+        if(!jump.jumping){
+          jump.jumping = true;
+          jump.time = new Date().getTime();
+        }
+      }
+      if(e.keyCode == 70){
+        coor.deg += Math.PI;
       }
     }
-    // Esc
-    if(e.keyCode == 27){
-      moving.doing = false;
+    if(e.keyCode == 81){
+      show_minimap = true;
     }
-    // Space
-    if(e.keyCode == 32){
-      if(!jump.jumping){
-        jump.jumping = true;
-        jump.time = new Date().getTime();
-      }
-    }
-    if(e.keyCode == 70){
-      coor.deg += Math.PI;
-    }
-  }
-  if(e.keyCode == 81){
-    show_minimap = true;
   }
 }
 function onKeyUp(e){
@@ -593,10 +796,6 @@ function onKeyUp(e){
   }
 }
 
-function initSpectator() {
-
-}
-
 function handleNetwork(socket) {
   console.log('game.handleNetwork started');
   console.log('socket: ', socket);
@@ -611,6 +810,8 @@ function handleNetwork(socket) {
   });
   socket.on('serverAcceptsSpectator', function(_maze, _spectator) {
     maze = _maze;
+    who_am_i = _spectator;
+    initGame();
   });
   socket.on('serverSendsUpdates', function(players) {
     other_players = players;
