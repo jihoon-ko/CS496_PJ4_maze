@@ -558,6 +558,7 @@ function animate(){
         var nsb = new Array(news_bottom.length);
         for(var ii=0;ii<news.length;ii++) ns[ii] = news[ii];
         for(var ii=0;ii<news_bottom.length;ii++) nsb[ii] = news_bottom[ii]; 
+
         save_view.push({
           x: camera.position.x,
           y: camera.position.y,
@@ -668,7 +669,7 @@ function animate(){
       var interpolate = (delta * 60) % 1000;
       var now_frm = ((delta * 60) - interpolate) / 1000;
       var nowFrame = getFrame(now_frm);
-      //console.log(now_frm, nowFrame.ns.length);
+
       if(nowFrame.map){
         ctx.globalAlpha = 0.5;
         ctx.fillStyle = '#777777';
@@ -730,7 +731,9 @@ function animate(){
       ctx.globalAlpha = 1;
       //ctx.fillRect(width / 2 -150, height / 2 - 20, 300, 40);
       ctx.textAlign = "center";
+
       if(game_result != 0 || !player_dead){
+
         var resultText = function(){
           if(playerType === 'player' && game_result > 0){
             ctx.fillStyle = '#FAA02E';
@@ -1122,7 +1125,7 @@ function handleNetwork(socket) {
     game_winner = winner;
     potg_start = new Date().getTime() + 3000;
     game_potg = potg;
-    //console.log(potg);
+
     stopGame();
     setTimeout(function(){gameState = 2;}, 3000);
   });

@@ -34,7 +34,7 @@ function getAllUsers() {
 var sockets = {};
 
 function loadMaze(){
-  return util.getNewMaze(4,4);
+  return util.getNewMaze(5,5);
 }
 
 var maze = loadMaze();
