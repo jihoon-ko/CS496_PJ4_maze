@@ -1,5 +1,6 @@
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera( 105, window.innerWidth/window.innerHeight, 0.001, 100 );
+var raycaster = new THREE.Raycaster();
 
 var cvs = document.getElementById('myCanvas');
 var renderer = new THREE.WebGLRenderer({canvas: cvs});
@@ -112,7 +113,7 @@ function stopGame(){
 
 function initModel(){
   var jsonLoader = new THREE.JSONLoader();
-  jsonLoader.load("/js/android-animations.js", addModelToScene); 
+  jsonLoader.load("/js/android-animations.js", addModelToScene);
 }
 
 function addModel(){
@@ -206,6 +207,7 @@ function initObject(){
     var Bottom = new THREE.Mesh(new THREE.ShapeBufferGeometry(square), new THREE.MeshBasicMaterial( {map: texture} ));
     Bottom.position.set((col-1) * block_size / 2, 0, (row-1) * block_size / 2);
     Bottom.rotation.x = -Math.PI/2;
+    Bottom.isFloor = true;
     scene.add(Bottom);
   };
   var makemaze = function(){
@@ -218,7 +220,8 @@ function initObject(){
           var material = new THREE.MeshNormalMaterial( {color: 0xff00ff} );
           wall[i][j] = new THREE.Mesh(wall_geometry, material);
           wall[i][j].position.set(j * block_size, block_height / 2, i * block_size);
-          scene.add(wall[i][j]); 
+          wall[i][j].isWall = true;
+          scene.add(wall[i][j]);
         }
       }
     }
@@ -251,7 +254,7 @@ function animate(){
   //   console.log('test emitted');
   //   return "test";
   // })());
-  
+
   var width = window.innerWidth; var height = window.innerHeight;
   var movingTask = function(){
     requestAnimationFrame( animate );
@@ -346,7 +349,8 @@ function animate(){
         var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
         name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
         name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
-        name3d[j].rotation.y = xdeg;
+        if(spectator_info.idx != j) name3d[j].rotation.y = xdeg;
+        else name3d[j].rotation.y = xdeg + Math.PI;
         scene.add(name3d[j]);
       }
     }else{
@@ -361,7 +365,7 @@ function animate(){
         var jump_time = (now_time - jump.time) / 1000.0;
         if(jump_time > 2.0 * Math.PI / 9.8){
           jump.jumping = false;
-        }else{       
+        }else{
           plus_y = Math.PI * jump_time - 0.5 * gravity * jump_time * jump_time;
         }
       }
@@ -380,7 +384,7 @@ function animate(){
       }
       if(press.right){
         coor.v_x += moveScale.move * Math.cos(coor.deg) / 2;
-        coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;    
+        coor.v_z += moveScale.move * Math.sin(coor.deg) / 2;
       }
       //console.log(delta_time, coor.v_x, coor.v_z);
       var prev_x = coor.x, prev_z = coor.z;
@@ -409,18 +413,21 @@ function animate(){
       var zz = coor.z - 100 * Math.cos(coor.deg);
       camera.lookAt(new THREE.Vector3(xx, yy, zz));
       //console.log(other_players.length);
-      
+
       for(var i=0;i<20;i++){
         if(android && android[i]){
           if(other_players.length <= i){
+            android[i].playerId = undefined;
+            android[i].isPlayer = false;
             android[i].position.set(0, -1000, 0);
           }else{
+            android[i].playerId = other_players[i].id;
+            android[i].isPlayer = true;
             android[i].position.x = other_players[i].x;
             android[i].position.y = other_players[i].y - 1;
             android[i].position.z = other_players[i].z;
             var xdeg = Math.atan2(other_players[i].cx - other_players[i].x, other_players[i].cz - other_players[i].z);
-            if(i != spectator_info.idx) android[i].rotation.y = xdeg;
-            else android[i].rotation.y = xdeg;
+            android[i].rotation.y = xdeg;
             for(var j=0;j<20;j++){
               android[i].morphTargetInfluences[j] = 0;
             }
@@ -465,8 +472,7 @@ function animate(){
           var centerOffset = -0.5 * (fontGeometry.boundingBox.max.x - fontGeometry.boundingBox.min.x);
           name3d[j] = new THREE.Mesh(fontGeometry, fontMaterials);
           name3d[j].position.set(other_players[j].x + centerOffset * Math.cos(xdeg), other_players[j].y + 0.3, other_players[j].z - centerOffset * Math.sin(xdeg));
-          if(j != spectator_info.idx) name3d[j].rotation.y = xdeg;
-          else name3d[j].rotation.y = xdeg + Math.PI;
+          name3d[j].rotation.y = xdeg;
           scene.add(name3d[j]);
         }
       }
@@ -526,7 +532,7 @@ function animate(){
       ctx.fillText(game_winner, 250, 60);
       ctx.font="italic 20px Koverwatch";
       ctx.fillText("안드로이드", 30, 90);
-      
+
       var now_time = new Date().getTime();
       var delta = now_time - potg_start;
       var interpolate = (delta * 60) % 1000;
@@ -671,6 +677,8 @@ function onMouseDown(e){
       moving.ori_x = 0.5 * width;//e.clientX;
       moving.ori_y = 0.5 * height;
       moving.ori_deg = coor.deg;
+    }else if(moving.doing && gameState == 0){
+      shootBeam();
     }
   }else if(playerType === 'spectator'){
     if(spectator_info.target === undefined){
@@ -705,7 +713,7 @@ function onKeyDown(e){
     }
     // Down
     if(e.keyCode == 40 || e.keyCode == 83){
-      spectator_info.z += 1; 
+      spectator_info.z += 1;
     }
     // Left
     if(e.keyCode == 37 || e.keyCode == 65){
@@ -725,7 +733,7 @@ function onKeyDown(e){
       }
       // Down
       if(e.keyCode == 40 || e.keyCode == 83){
-        if(!(press.down)){  
+        if(!(press.down)){
           press.down = true;
         }
       }
@@ -796,10 +804,52 @@ function onKeyUp(e){
   }
 }
 
+function shootBeam() {
+  raycaster.setFromCamera(new THREE.Vector2(), camera);
+  var intersects = raycaster.intersectObjects(scene.children);
+  var intersectingPlayers = intersects.filter(function(intersect) {
+    return intersect.object.isPlayer;
+  });
+  var validIntersects = intersects.filter(function(intersect) {
+    var obj = intersect.object;
+    return obj.isPlayer || obj.isWall || obj.isFloor;
+  });
+  var victim, endPoint;
+  if(intersectingPlayers.length > 0) {
+    var victimObject = intersectingPlayers[0].object;
+    victim = other_players.find(function(player) {
+      return player.id === victimObject.playerId;
+    });
+  }
+  if(validIntersects.length > 0) {
+    endPoint = validIntersects[0].point;
+  } else {
+    endPoint = camera.getWorldDirection().normalize().multiplyScalar(200).add(new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z));
+  }
+  var beam = {
+    shooter: who_am_i,
+    victim: victim,
+    startPoint: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z
+    },
+    endPoint: {
+      x: endPoint.x,
+      y: endPoint.y,
+      z: endPoint.z
+    }
+  };
+  console.log('intersects', intersects);
+  console.log(beam);
+  mySocket.emit('playerShoots', beam);
+
+}
+
 function handleNetwork(socket) {
   console.log('game.handleNetwork started');
   console.log('socket: ', socket);
-  
+
   socket.emit('userRequiresGame', playerName, playerType);
 
   socket.on('serverAcceptsPlayer', function(_maze, _player) {
@@ -823,13 +873,40 @@ function handleNetwork(socket) {
     restartGame();
   });
 
-  socket.on('testEvent', function (testString) {
-    console.log('testEvent: ' + testString);
+  socket.on('serverBroadcastsBeam', function(beam) {
+    //drawBeam
+    var beamMaterial = new THREE.LineBasicMaterial( { color: 0xffff55, linewidth: 3 });
+    var lineGeometry = new THREE.Geometry();
+    lineGeometry.vertices.push(
+      new THREE.Vector3(beam.startPoint.x, beam.startPoint.y, beam.startPoint.z)
+    );
+    lineGeometry.vertices.push(
+      new THREE.Vector3(beam.endPoint.x, beam.endPoint.y, beam.endPoint.z)
+    );
+    var beamLine = new THREE.Line(lineGeometry, beamMaterial);
+    beamLine.isLine = true;
+    scene.add(beamLine);
+    setTimeout(function() {
+      scene.remove(beamLine);
+    }, 2000);
+
   });
-  socket.on('error', function(error){
+
+  socket.on('youAreDead', function(data) {
+    console.log('You Died');
+    //canvas에 죽음 표시
+    //닉네임 화면으로 돌아간다
+  });
+
+  socket.on('playerDies', function(data) {
+    console.log('Somebody died');
+    //canvas에 죽음 표시
+  });
+
+  socket.on('error', function(error) {
     console.log(error);
   });
-  socket.on('disconnected', function(){
+  socket.on('disconnected', function() {
     console.log("!!!");
   });
   socket.on('roundFinished', function(potg, result, winner){
