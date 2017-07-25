@@ -42,7 +42,7 @@ window.onload = function() {
 function validNick() {
   var regex = /^\w*$/;
   console.log('Regex Test', regex.exec(playerNameInput.value));
-  return regex.exec(playerNameInput.value) !== null;
+  return playerNameInput.value !== "" && regex.exec(playerNameInput.value) !== null;
 }
 
 function startGame(type) {
